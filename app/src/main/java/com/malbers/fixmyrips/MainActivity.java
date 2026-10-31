@@ -620,8 +620,9 @@ public class MainActivity extends Activity {
         LinearLayout body = card();
         int p = Ui.dp(this, 18);
         body.setPadding(p, p, p, p);
-        body.addView(Ui.text(this, "Fix " + todo.size() + (todo.size() == 1 ? " album?" : " albums?"), 20, Ui.TEXT, true));
-        TextView t = Ui.text(this, changes + " tag changes in " + files + " files.\n\n"
+        body.addView(Ui.text(this, todo.size() == 1 ? "Fix " + label(todo.get(0)) + "?" : "Fix " + todo.size() + " albums?", 20, Ui.TEXT, true));
+        TextView t = Ui.text(this, (todo.size() == 1 ? "" : names(todo) + "\n\n")
+                + changes + " tag changes in " + files + " files.\n\n"
                 + "Only the tags change. Each file's music is fingerprinted before and after; if anything else changed, "
                 + "the file is put back straight away.\n\n"
                 + "Every fix is saved in Undo history, so you can put the old tags back later. "
@@ -662,7 +663,7 @@ public class MainActivity extends Activity {
 
         File undoDir = new File(getFilesDir(), "undo");
         new Thread(() -> {
-            int fixed = 0;
+            List<Row> fixedRows = new ArrayList<>();
             List<String> failed = new ArrayList<>();
             for (int i = 0; i < todo.size() && !cancelled; i++) {
                 Row r = todo.get(i);
@@ -671,7 +672,7 @@ public class MainActivity extends Activity {
                 ItemAdapter.Item item;
                 try {
                     Fixer.fix(r.plan, undoDir, System.currentTimeMillis());
-                    fixed++;
+                    fixedRows.add(r);
                     item = new ItemAdapter.Item(r.album.dir.getName(), describeChanges(r.plan), "Fixed", Ui.GOOD, null, false, null);
                 } catch (Exception e) {
                     failed.add(r.album.dir.getName() + ": " + e.getMessage());
@@ -684,20 +685,22 @@ public class MainActivity extends Activity {
                     bar.setProgress(n + 1);
                 });
             }
-            int done = fixed;
             runOnUiThread(() -> {
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                showFixReport(done, failed, todo.size());
+                showFixReport(fixedRows, failed, todo.size());
             });
         }, "fix").start();
     }
 
-    private void showFixReport(int fixed, List<String> failed, int planned) {
+    private void showFixReport(List<Row> done, List<String> failed, int planned) {
+        int fixed = done.size();
         LinearLayout body = card();
         int p = Ui.dp(this, 18);
         body.setPadding(p, p, p, p);
-        body.addView(Ui.text(this, "Fixed " + fixed + (fixed == 1 ? " album" : " albums"), 20, Ui.GOOD, true));
+        String head = fixed == 1 ? "Fixed " + label(done.get(0)) : "Fixed " + fixed + " albums";
+        body.addView(Ui.text(this, head, 20, fixed == 0 ? Ui.SUB : Ui.GOOD, true));
         StringBuilder b = new StringBuilder();
+        if (fixed > 1) b.append(names(done)).append("\n\n");
         if (cancelled) b.append("Stopped after ").append(fixed + failed.size()).append(" of ").append(planned).append(".\n\n");
         if (!failed.isEmpty()) {
             b.append("Not fixed, nothing changed in these:\n");
@@ -726,7 +729,8 @@ public class MainActivity extends Activity {
                 String[] d = Fixer.describe(rec);
                 if (d == null) continue;
                 File album = new File(d[0]);
-                adapter.add(new ItemAdapter.Item(album.getName(), when.format(new Date(Long.parseLong(d[1]))) + " · " + d[2] + " tag changes",
+                String artist = album.getParentFile() != null ? album.getParentFile().getName() + " · " : "";
+                adapter.add(new ItemAdapter.Item(artist + album.getName(), when.format(new Date(Long.parseLong(d[1]))) + " · " + d[2] + " tag changes",
                         "Undo", Ui.ACCENT, null, false, rec));
             }
         }
@@ -780,6 +784,20 @@ public class MainActivity extends Activity {
             }, "undo").start();
         });
         frame(Screen.CONFIRM, "Undo", body, Ui.button(this, "Cancel", v -> showUndo()), go);
+    }
+
+    /** "Commodores · Anthology- The Best of the Commodores": artist (tags, else parent folder) and album folder. */
+    private static String label(Row r) {
+        String artist = r.artist();
+        return (artist != null ? artist + " · " : "") + r.album.dir.getName();
+    }
+
+    /** One album per line, at most eight, then "and N more". */
+    private static String names(List<Row> rows) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < Math.min(8, rows.size()); i++) b.append(i > 0 ? "\n" : "").append("• ").append(label(rows.get(i)));
+        if (rows.size() > 8) b.append("\n…and ").append(rows.size() - 8).append(" more");
+        return b.toString();
     }
 
     private static String parentName(Album a) {
