@@ -144,8 +144,16 @@ Use this if the upload page doesn't work for you, or if you already copy music t
 The first time you open it, the app asks for permission to read your music folders and, when you tap Fix, correct their tags. Android asks this in two steps, and both are needed.
 
 1. **Tap Grant access.** The screen explains what the app will and won't do with your files.
+
+   ![Permission screen](docs/install/first-1.jpg)
+
 2. **Turn on the switch** next to **Allow access to manage all files**. Android's wording sounds alarming because this is a broad permission. FixMyRips uses it only to read your folders, change tags when you tap Fix, and save its list, undo records, reports and updates to Download. Then press the back arrow (top left) to return to the app.
+
+   ![All files access](docs/install/first-2.jpg)
+
 3. **Tap Allow** on the pop-up that follows. The app opens on the list of your drives, ready to pick a music folder.
+
+   ![Allow access pop-up](docs/install/first-3.jpg)
 
 ### Updating later
 
