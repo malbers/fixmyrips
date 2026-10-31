@@ -6,7 +6,17 @@ Built for the Eversolo DMP-A6, whose CD Ripper leaves gaps in the tags: track nu
 
 ![Results for a 143-album library: 113 fixable, 5 to re-rip, 12 OK, 14 not checked](docs/screenshots/3-results.jpg)
 
-> **📷 And once your library is checked: scan a CD with your phone to see if it's ripped.** Stand at your shelf, snap the barcode on the back of a CD, and it tells you whether that disc is in your library, needs a re-rip, is a different edition, or isn't ripped yet. No app on the phone. [See how it works](#scan-a-cd-with-your-phone-is-it-ripped).
+<img src="docs/screenshots/inventory-4-ripped.jpg" alt="Phone answer: Ripped, 14 tracks, matches this CD" width="190" align="right">
+
+### 📷 Plus: scan a CD with your phone to see if it's ripped
+
+Once your library is checked, stand at your CD shelf and snap the barcode on the back of a case. Your phone tells you whether that disc is already in your library, ripped but needing a re-rip, a different edition, or not ripped yet.
+
+No app to install on the phone, just its browser. Turn on Stack mode and it builds your to-rip list as you go.
+
+**[See how it works ↓](#scan-a-cd-with-your-phone-is-it-ripped)**
+
+<br clear="right">
 
 > **Made by Michael Albers.** I make honest videos about budget audio equipment, including a lot of Eversolo DMP-A6 how-tos. If this app helped you, come find more on my YouTube channel: **[youtube.com/@malbers](https://www.youtube.com/@malbers)**
 
@@ -16,11 +26,11 @@ Built for the Eversolo DMP-A6, whose CD Ripper leaves gaps in the tags: track nu
 
    ![Choosing the EverSoloMusic folder](docs/screenshots/1-choose-folder.jpg)
 
-2. **Watch it check.** Each album is compared with its release on MusicBrainz, and the problems show up as it goes. Nothing is changed while it checks.
+2. **Watch it check.** Each album is compared with its release on MusicBrainz. Nothing is changed while it checks.
 
    ![Checking album 15 of 143](docs/screenshots/2-checking.jpg)
 
-3. **Read the results.** Every album lands in one of four groups: **Fixable** (tags it can correct), **Re-rip** (missing, empty or cut-short tracks that only ripping again will fix), **OK**, and **Not checked** (it couldn't match the album with confidence, so it leaves it alone). Here it caught two discs of a Beatles box set that only half ripped:
+3. **Read the results.** Every album lands in one of four groups: **Fixable** (tags it can correct), **Re-rip** (missing, empty or cut-short tracks that only ripping again will fix), **OK**, and **Not checked** (it couldn't match the album with confidence, so it leaves it alone). Problems show up while it's still checking; here it caught two discs of a Beatles box set that only half ripped:
 
    ![1967-1970 Disc 2: 3 of 14 tracks, needs a re-rip](docs/screenshots/rerip-found.jpg)
 
