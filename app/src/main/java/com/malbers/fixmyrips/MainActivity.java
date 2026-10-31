@@ -1038,8 +1038,8 @@ public class MainActivity extends Activity {
                 ? "No library list yet. Go Back, open your music folder (for example EverSoloMusic) and tap Scan this folder; the list is saved when the scan finishes."
                 : "Library list: " + lib.entries.size() + " albums, from " + new SimpleDateFormat("MMM d, HH:mm", Locale.US).format(new Date(lib.updated))
                     + ". Rescan a folder to bring it up to date.";
-        TextView t = Ui.text(this, "Snap a CD's barcode or type a name, and it tells you if that CD is ripped, ripped with problems, "
-                + "a different edition, or not ripped yet.\n\n" + libLine + "\n\n"
+        TextView t = Ui.text(this, "Snap a CD's barcode or type a name. It answers: Ripped; Ripped, but needs a re-rip; "
+                + "Ripped, but a different edition; or Not ripped yet.\n\n" + libLine + "\n\n"
                 + "Keep this screen open while you scan. It only answers on your home network, and only reads.", 15, Ui.TEXT, false);
         body.addView(t);
         frame(Screen.INVENTORY, "Rip Inventory · keep this screen open", body, Ui.button(this, "Stop", true, v -> leaveInventory()));

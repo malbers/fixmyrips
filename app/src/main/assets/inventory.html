@@ -19,7 +19,7 @@
   button { background:var(--hi); color:var(--text); border:0; font-size:16px; padding:12px 14px; border-radius:10px; font-weight:600; }
   .verdict { font-size:20px; font-weight:700; }
   .ripped { color:var(--good); } .other-edition { color:var(--good); } .probably { color:var(--accent); }
-  .not-ripped { color:var(--bad); } .unknown-barcode, .error { color:var(--sub); }
+  .not-ripped, .needs-rerip { color:var(--bad); } .unknown-barcode, .error { color:var(--sub); }
   .match { border-top:1px solid var(--hi); padding-top:8px; margin-top:8px; font-size:15px; }
   .rerip { color:var(--bad); }
   ul { padding-left:18px; margin:8px 0 0; }
@@ -96,7 +96,7 @@
         + '</div>';
     });
     out.innerHTML = h;
-    if ($('stackMode').checked && (a.verdict === 'not-ripped' || (a.matches || []).some(function (m) { return m.status === 'rerip'; }))) {
+    if ($('stackMode').checked && (a.verdict === 'not-ripped' || a.verdict === 'needs-rerip' || (a.matches || []).some(function (m) { return m.status === 'rerip'; }))) {
       var line = (a.artist ? a.artist + ' · ' : '') + (a.title || label) + (a.verdict === 'not-ripped' ? '' : ' (re-rip)');
       if (stack.indexOf(line) < 0) { stack.push(line); saveStack(); }
     }

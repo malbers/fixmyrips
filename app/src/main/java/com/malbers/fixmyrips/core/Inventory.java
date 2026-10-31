@@ -23,8 +23,8 @@ import java.util.Set;
  * </ol>
  */
 public final class Inventory {
-    public static final String RIPPED = "ripped", OTHER_EDITION = "other-edition", PROBABLY = "probably",
-            NOT_RIPPED = "not-ripped", UNKNOWN = "unknown-barcode";
+    public static final String RIPPED = "ripped", NEEDS_RERIP = "needs-rerip", OTHER_EDITION = "other-edition",
+            PROBABLY = "probably", NOT_RIPPED = "not-ripped", UNKNOWN = "unknown-barcode";
 
     private Inventory() {}
 
@@ -208,7 +208,21 @@ public final class Inventory {
             for (LibraryIndex.Entry e : found) if (e.disc != null) have.add(e.disc);
             discs = " · " + (have.isEmpty() ? "disc numbers unknown" : have.size() + " of " + top.discs + " discs");
         }
-        return new Answer(verdict, top.title, top.artist, found, head + discs + summary(found));
+        String rerip = rerip(found);
+        if (rerip != null) {
+            // A rip that needs redoing leads, in the same words the Eversolo screen uses.
+            if (PROBABLY.equals(verdict)) return new Answer(PROBABLY, top.title, top.artist, found,
+                    "Probably ripped (matched by name), but needs a re-rip: " + rerip + discs);
+            return new Answer(NEEDS_RERIP, top.title, top.artist, found, "Ripped, but needs a re-rip: " + rerip + discs);
+        }
+        return new Answer(verdict, top.title, top.artist, found, head + discs);
+    }
+
+    private static String rerip(List<LibraryIndex.Entry> found) {
+        for (LibraryIndex.Entry e : found) {
+            if (LibraryIndex.RERIP.equals(e.status) && !e.problems.isEmpty()) return e.problems.get(0);
+        }
+        return null;
     }
 
     /** " · tracks 17, 19, 20 need re-ripping" when any match needs a re-rip. */

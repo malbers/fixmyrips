@@ -49,8 +49,8 @@ public class InventoryTest {
     public void rerunRipIsRippedWithTheRerunNotAMatchClaim() {
         Inventory.Answer a = Inventory.match(lib(e("Commodores", "Anthology", "rel", "g-c", null, LibraryIndex.RERIP, "17 of 21 tracks")),
                 Arrays.asList(r("rel-2", "g-c", "Anthology", "Commodores", 21)));
-        assertEquals(Inventory.RIPPED, a.verdict);
-        assertEquals("Ripped · needs a re-rip: 17 of 21 tracks", a.message);
+        assertEquals(Inventory.NEEDS_RERIP, a.verdict);
+        assertEquals("Ripped, but needs a re-rip: 17 of 21 tracks", a.message);
     }
 
     @Test
@@ -74,7 +74,7 @@ public class InventoryTest {
                         LibraryIndex.RERIP, "17 of 21 tracks, missing 17, 19, 20, 21")),
                 Arrays.asList(r("y", "g-y", "Anthology: The Best of The Commodores", "Commodores", 21)));
         assertEquals(Inventory.PROBABLY, a.verdict);
-        assertTrue(a.message, a.message.startsWith("Probably ripped (matched by name) · needs a re-rip"));
+        assertTrue(a.message, a.message.startsWith("Probably ripped (matched by name), but needs a re-rip: 17 of 21 tracks"));
         assertTrue(a.message, a.message.contains("needs a re-rip: 17 of 21 tracks"));
     }
 
