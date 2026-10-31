@@ -579,20 +579,34 @@ public class MainActivity extends Activity {
 
     // ---------- one album: the before → after preview ----------
 
+    /**
+     * Two layers: a plain-English card per kind of fix (what's wrong, why it matters, what the fix does),
+     * then every file's change with the exact tag name in brackets for anyone who wants it.
+     */
     private void showAlbum(Row r) {
         ItemAdapter adapter = new ItemAdapter(this);
-        for (FixPlanner.Change c : r.plan.changes) {
-            adapter.add(new ItemAdapter.Item(c.file.getName(), c.key + ":  " + (c.from == null ? "(none)" : c.from) + "  →  " + c.to,
-                    "change", Ui.ACCENT, null, false, null));
+        List<String> kinds = new ArrayList<>();
+        for (FixPlanner.Change c : r.plan.changes) if (!kinds.contains(c.key)) kinds.add(c.key);
+        for (String k : kinds) {
+            String[] e = explain(k, r);
+            adapter.add(new ItemAdapter.Item(e[0], e[1], "why", Ui.ACCENT, null, false, null));
         }
-        for (String p : r.plan.reRip) adapter.add(new ItemAdapter.Item("Re-rip needed", p, "can't fix", Ui.BAD, null, false, null));
-        for (String p : r.plan.notes) adapter.add(new ItemAdapter.Item("Left alone", p, null, Ui.SUB, null, false, null));
+        for (String p : r.plan.reRip) {
+            adapter.add(new ItemAdapter.Item("Some tracks need ripping again", p
+                    + ". Changing tags can't bring back missing or damaged audio; rip those tracks from the CD again.", "can't fix", Ui.BAD, null, false, null));
+        }
+        for (FixPlanner.Change c : r.plan.changes) {
+            adapter.add(new ItemAdapter.Item(c.file.getName(), plainKey(c.key) + ":  " + (c.from == null ? "none" : c.from) + "  →  " + c.to
+                    + "     (" + c.key + ")", "change", Ui.SUB, null, false, null));
+        }
+        for (String p : r.plan.notes) adapter.add(new ItemAdapter.Item("Left alone, on purpose", p, null, Ui.SUB, null, false, null));
 
         LinearLayout body = Ui.column(this);
-        String by = r.check != null && r.check.basis != null ? "Compared with the release by " + r.check.basis + ". " : "";
-        TextView n = Ui.text(this, by + (r.plan.fixable()
-                ? r.plan.changes.size() + " tag changes in " + r.plan.files().size() + " files. Only tags change; the music is checked before and after, and this can be undone."
-                : "Nothing here can be fixed by changing tags."), 15, Ui.TEXT, false);
+        String by = basisPlain(r.check);
+        TextView n = Ui.text(this, (r.plan.fixable()
+                ? "Only the labels stored inside the files (their tags) change, never the music: each file's audio is "
+                    + "fingerprinted before and after. " + r.plan.files().size() + " files. You can undo this later."
+                : "Nothing here can be fixed by changing tags.") + (by.isEmpty() ? "" : "\n" + by), 15, Ui.TEXT, false);
         n.setPadding(Ui.dp(this, 4), 0, 0, Ui.dp(this, 8));
         body.addView(n);
         LinearLayout box = card();
@@ -607,6 +621,52 @@ public class MainActivity extends Activity {
         } else {
             frame(Screen.ALBUM, title, body, Ui.button(this, "Back", true, v -> showResults()));
         }
+    }
+
+    /** {headline, explanation} in plain words for one kind of change. */
+    private static String[] explain(String key, Row r) {
+        int files = r.plan.files().size();
+        String to = null;
+        for (FixPlanner.Change c : r.plan.changes) if (c.key.equals(key)) { to = c.to; break; }
+        switch (key) {
+            case "TRACKNUMBER":
+                return new String[] {"Track numbers are off by one",
+                        "The CD ripper numbered these tracks from 0 instead of 1, so track 1 is labelled 0, track 2 is labelled 1, and so on. "
+                        + "Players and apps can show the wrong numbers or sort the album oddly. The fix renumbers them to match the file names."};
+            case "TRACKTOTAL":
+                return new String[] {"The album's track count is missing",
+                        "The files don't say how many tracks the album has. Players and apps use it to show \"track 3 of " + to + "\" "
+                        + "and to notice when a track is missing. The online check confirmed " + to + " tracks and all " + files
+                        + " are here, so the fix adds " + to + "."};
+            case "DISCNUMBER":
+                return new String[] {"Which disc this is isn't recorded",
+                        "This folder is disc " + to + " of a set, but the files don't say so. Without it, players can mix the discs "
+                        + "together or put them in the wrong order. The fix takes the disc number from the folder name."};
+            case "DISCTOTAL":
+                return new String[] {"The number of discs in the set is missing",
+                        "The files don't say how many discs the set has. The other disc folders are all here (" + to
+                        + " in total), so the fix adds " + to + "."};
+            default:
+                return new String[] {plainKey(key), "This tag is set or corrected."};
+        }
+    }
+
+    private static String plainKey(String key) {
+        switch (key) {
+            case "TRACKNUMBER": return "Track number";
+            case "TRACKTOTAL": return "Tracks on album";
+            case "DISCNUMBER": return "Disc number";
+            case "DISCTOTAL": return "Discs in set";
+            default: return key;
+        }
+    }
+
+    /** Where the album was checked, in plain words; empty when it wasn't. */
+    private static String basisPlain(RipCheck.Result check) {
+        if (check == null || check.basis == null) return "";
+        if (RipCheck.BY_ID.equals(check.basis)) return "Checked against MusicBrainz, the free online music database, using the album ID already in your files.";
+        if (RipCheck.BY_SEARCH.equals(check.basis)) return "Checked against MusicBrainz, the free online music database, found by artist and album name.";
+        return "Checked using the track numbers in your files (no online match).";
     }
 
     // ---------- confirm, fix, report ----------
