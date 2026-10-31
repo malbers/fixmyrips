@@ -773,7 +773,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     if (m == null) {
                         for (Row r : rows) if (r.album.dir.getPath().equals(albumPath)) r.plan = FixPlanner.plan(r.album, r.check);
-                        showUndo();
+                        showUndone(album, d == null ? null : d[2]);
                     } else {
                         t.setText("Couldn't undo everything: " + m + "\n\nThe undo record is kept.");
                         t.setTextColor(Ui.BAD);
@@ -784,6 +784,23 @@ public class MainActivity extends Activity {
             }, "undo").start();
         });
         frame(Screen.CONFIRM, "Undo", body, Ui.button(this, "Cancel", v -> showUndo()), go);
+    }
+
+    /** After a successful undo: say plainly what happened, rather than dropping back to an empty list. */
+    private void showUndone(String album, String changes) {
+        LinearLayout body = card();
+        int p = Ui.dp(this, 18);
+        body.setPadding(p, p, p, p);
+        body.addView(Ui.text(this, "Undone: " + album, 20, Ui.GOOD, true));
+        TextView t = Ui.text(this, "All " + (changes != null ? changes + " " : "") + "tag changes were reversed. "
+                + "Every file has exactly the tags it had before the fix, and the music was checked unchanged.\n\n"
+                + "Now update your library on the Eversolo so it shows the old tags again (it may start on its own).", 15, Ui.TEXT, false);
+        t.setPadding(0, Ui.dp(this, 10), 0, 0);
+        body.addView(t);
+        List<View> buttons = new ArrayList<>();
+        buttons.add(Ui.button(this, "Undo history", v -> showUndo()));
+        if (scanRoot != null && !rows.isEmpty()) buttons.add(Ui.button(this, "Back to results", true, v -> showResults()));
+        frame(Screen.REPORT, "Undo", body, buttons.toArray(new View[0]));
     }
 
     /**
