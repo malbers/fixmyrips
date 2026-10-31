@@ -12,9 +12,9 @@ Built for the Eversolo DMP-A6, whose CD Ripper leaves gaps in the tags: track nu
 
 Stand at your shelf with your phone. No app to install, just its browser. It even tells you when the CD in your hand is a different edition from the one you ripped, and Stack mode builds your to-rip list as you go.
 
-**[See how it works ↓](#scan-a-cd-with-your-phone-is-it-ripped)**
-
 <img src="docs/screenshots/inventory-4-ripped.jpg" alt="Phone answer: Ripped, 14 tracks, matches this CD" width="260">
+
+**[See how it works ↓](#scan-a-cd-with-your-phone-is-it-ripped)**
 
 > **Made by Michael Albers.** I make honest videos about budget audio equipment, including a lot of Eversolo DMP-A6 how-tos. If this app helped you, come find more on my YouTube channel: **[youtube.com/@malbers](https://www.youtube.com/@malbers)**
 
