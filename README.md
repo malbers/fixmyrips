@@ -12,9 +12,7 @@ Built for the Eversolo DMP-A6, whose CD Ripper leaves gaps in the tags: track nu
 
 ### 📷 Plus: scan a CD with your phone to see if it's ripped
 
-Once your library is checked, stand at your CD shelf and snap the barcode on the back of a case. Your phone tells you whether that disc is already in your library, ripped but needing a re-rip, a different edition, or not ripped yet.
-
-No app to install on the phone, just its browser. Turn on Stack mode and it builds your to-rip list as you go.
+Stand at your shelf with your phone. No app to install, just its browser. It even tells you when the CD in your hand is a different edition from the one you ripped, and Stack mode builds your to-rip list as you go.
 
 **[See how it works ↓](#scan-a-cd-with-your-phone-is-it-ripped)**
 
