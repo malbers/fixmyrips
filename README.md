@@ -1,49 +1,40 @@
 # FixMyRips
 
-Checks the CDs you've ripped to an Eversolo streamer, fixes the tags it can fix safely, and tells you which discs need ripping again. Then, standing at your CD shelf, you can snap a CD's barcode with your phone and it tells you whether that disc is already in your library.
+Finds and fixes the errors in CDs ripped on an Eversolo streamer. It checks every album against its release, corrects the tags it can fix safely, and tells you which discs need ripping again.
 
 Built for the Eversolo DMP-A6, whose CD Ripper leaves gaps in the tags: track numbers that start at 0, no track total, no disc number on multi-disc sets. It runs on the device itself, so there is no PC, no network share and no tagging software involved.
 
+![Results for a 143-album library: 113 fixable, 5 to re-rip, 12 OK, 14 not checked](docs/screenshots/3-results.jpg)
+
+> **📷 And once your library is checked: scan a CD with your phone to see if it's ripped.** Stand at your shelf, snap the barcode on the back of a CD, and it tells you whether that disc is in your library, needs a re-rip, is a different edition, or isn't ripped yet. No app on the phone. [See how it works](#scan-a-cd-with-your-phone-is-it-ripped).
+
 > **Made by Michael Albers.** I make honest videos about budget audio equipment, including a lot of Eversolo DMP-A6 how-tos. If this app helped you, come find more on my YouTube channel: **[youtube.com/@malbers](https://www.youtube.com/@malbers)**
-
-## Scan a CD with your phone: is it ripped?
-
-If you have a few hundred CDs, the hardest question is often the simplest one: did I already rip this one? **Rip Inventory** answers it from the shelf.
-
-1. On the Eversolo, open FixMyRips and tap **Rip Inventory**. It shows a web address for your home network.
-2. Open that address in your phone's browser (Safari or Chrome). No app to install on the phone.
-3. Tap **Snap a CD barcode** and take a photo of the barcode on the back of the case. Or type an artist or album.
-4. It answers in one line: **Ripped**, **Ripped, but needs a re-rip** (and which tracks), **Ripped, but a different edition** (this CD has 17 tracks, your rip has 14), or **Not ripped yet**.
-
-| On the Eversolo | Snap a barcode | Not ripped yet | Ripped, and it matches |
-|---|---|---|---|
-| ![Rip Inventory on the Eversolo, showing the address to open](docs/screenshots/inventory-1-eversolo.jpg) | ![The phone page](docs/screenshots/inventory-2-phone.jpg) | ![A CD that isn't in the library](docs/screenshots/inventory-3-not-ripped.jpg) | ![A CD that is ripped, with its folder](docs/screenshots/inventory-4-ripped.jpg) |
-
-Turn on **Stack mode** and anything that still needs ripping goes on a list as you work through the shelf, so you finish with a pile and a to-do list.
-
-It judges editions by track count, not by catalogue number. Several pressings of the same album share one disc, so a different number on the case doesn't mean a different CD. A different track list does.
-
-**Where its answers come from.** Rip Inventory answers from the library list FixMyRips saves each time a folder scan finishes. Scan your music folder once before you use it. If your music lives in more than one folder (say `Music` and `EverSoloMusic`), scan each one: every scan adds that folder's albums to the same list and leaves the others in place. Rescan a folder after you rip more CDs into it.
-
-The phone page only works on your home network, only while that screen is open on the Eversolo, and it only reads. The barcode is looked up on MusicBrainz, the free music database.
 
 ## Check and fix your rips
 
-![Results for a 143-album library: 113 fixable, 5 to re-rip, 12 OK](docs/screenshots/3-results.jpg)
+1. **Pick a folder** on the internal storage or an attached drive, e.g. `EverSoloMusic`, and tap **Scan this folder**. Every folder with audio files counts as an album. You can scan a whole library or one artist.
 
-1. **Pick a folder** on the internal storage or an attached drive, e.g. `EverSoloMusic`, and tap **Scan this folder**. Every folder with audio files counts as an album.
-2. **Watch it check.** Each album is compared with its release on MusicBrainz. Nothing is changed while it checks.
-3. **Read the results.** Every album lands in one of four groups: **Fixable** (tags it can correct), **Re-rip** (missing, empty or cut-short tracks that only ripping again will fix), **OK**, and **Not checked** (it couldn't match the album with confidence, so it leaves it alone).
-4. **Tap an album** to see exactly what would change, file by file, with a plain-words explanation of why. Nothing changes until you tap **Fix this album**, or **Fix all** for the whole list.
-5. **Update your library** on the Eversolo afterwards so it reads the new tags. It may start on its own.
+   ![Choosing the EverSoloMusic folder](docs/screenshots/1-choose-folder.jpg)
 
-| Choose a folder | Checking | What would change |
-|---|---|---|
-| ![Folder list](docs/screenshots/1-choose-folder.jpg) | ![Checking each album](docs/screenshots/2-checking.jpg) | ![Abbey Road: track count missing, 17 files](docs/screenshots/4-album-detail.jpg) |
+2. **Watch it check.** Each album is compared with its release on MusicBrainz, and the problems show up as it goes. Nothing is changed while it checks.
 
-| Confirm | Fixed | Found a bad rip |
-|---|---|---|
-| ![Fix The Beatles, Abbey Road?](docs/screenshots/5-confirm.jpg) | ![Fixed](docs/screenshots/6-fixed.jpg) | ![1967-1970 Disc 2: 3 of 14 tracks, needs a re-rip](docs/screenshots/rerip-found.jpg) |
+   ![Checking album 15 of 143](docs/screenshots/2-checking.jpg)
+
+3. **Read the results.** Every album lands in one of four groups: **Fixable** (tags it can correct), **Re-rip** (missing, empty or cut-short tracks that only ripping again will fix), **OK**, and **Not checked** (it couldn't match the album with confidence, so it leaves it alone). Here it caught two discs of a Beatles box set that only half ripped:
+
+   ![1967-1970 Disc 2: 3 of 14 tracks, needs a re-rip](docs/screenshots/rerip-found.jpg)
+
+4. **Tap an album** to see exactly what would change, file by file, and tap **why** for a plain-words explanation.
+
+   ![Abbey Road: the track count is missing from all 17 files](docs/screenshots/4-album-detail.jpg)
+
+5. **Fix it.** Tap **Fix this album**, or **Fix all** on the results screen for the whole list. It tells you what will happen before it does anything.
+
+   ![Fix The Beatles, Abbey Road? 17 tag changes in 17 files](docs/screenshots/5-confirm.jpg)
+
+6. **Update your library** on the Eversolo afterwards so it reads the new tags. It may start on its own. Changed your mind? **Undo history** puts the old tags back.
+
+   ![Fixed The Beatles, Abbey Road](docs/screenshots/6-fixed.jpg)
 
 **Save report** keeps the full list, including what needs re-ripping, as a text file in the Eversolo's Download folder.
 
@@ -54,14 +45,40 @@ The phone page only works on your home network, only while that screen is open o
 
 Every rule skips when it can't be sure, and says why. **A wrong tag is worse than a missing one.** Works on FLAC and MP3.
 
-**It keeps itself up to date.** Once a day it checks for a new version. When one is out, an **Update available** button appears; one tap downloads it to the Download folder, and you install it from the Files app. No computer needed.
+## Scan a CD with your phone: is it ripped?
+
+If you have a few hundred CDs, the hardest question is often the simplest one: did I already rip this one? **Rip Inventory** answers it from the shelf.
+
+1. On the Eversolo, open FixMyRips and tap **Rip Inventory**. It shows a web address for your home network. Keep that screen open while you scan.
+
+   ![Rip Inventory on the Eversolo, showing the address to open on your phone](docs/screenshots/inventory-1-eversolo.jpg)
+
+2. Open that address in your phone's browser (Safari or Chrome). No app to install on the phone.
+3. Tap **Snap a CD barcode** and take a photo of the barcode on the back of the case. Or type an artist or album.
+4. It answers in one line: **Ripped**, **Ripped, but needs a re-rip** (and which tracks), **Ripped, but a different edition** (this CD has 17 tracks, your rip has 14), or **Not ripped yet**.
+
+| Snap a barcode | Not ripped yet | Ripped, and it matches |
+|---|---|---|
+| ![The phone page](docs/screenshots/inventory-2-phone.jpg) | ![A CD that isn't in the library](docs/screenshots/inventory-3-not-ripped.jpg) | ![A CD that is ripped, with its folder](docs/screenshots/inventory-4-ripped.jpg) |
+
+Turn on **Stack mode** and anything that still needs ripping goes on a list as you work through the shelf, so you finish with a pile and a to-do list.
+
+It judges editions by track count, not by catalogue number. Several pressings of the same album share one disc, so a different number on the case doesn't mean a different CD. A different track list does.
+
+**Where its answers come from.** Rip Inventory answers from the library list FixMyRips saves each time a folder scan finishes, so scan your music folder first. If your music lives in more than one folder (say `Music` and `EverSoloMusic`), scan each one: every scan adds that folder's albums to the same list and leaves the others in place. Rescan a folder after you rip more CDs into it.
+
+The phone page only works on your home network, only while that screen is open on the Eversolo, and it only reads. The barcode is looked up on MusicBrainz, the free music database.
+
+## Staying up to date
+
+Once a day it checks for a new version. When one is out, an **Update available** button appears; one tap downloads it to the Download folder, and you install it from the Files app. No computer needed.
 
 ## What it never does
 
 - It never changes the music. Only the tags (the labels stored inside each file) change. Each file's audio is fingerprinted before and after a fix; if anything other than the tags changed, the file is put back straight away.
 - It never moves, renames or deletes a file or folder.
 - It never changes anything until you tap **Fix**, and it shows you every change first.
-- Every fix can be undone. **Undo history** puts the old tags back, album by album. The undo records are kept in `Download/FixMyRips/undo`, so they survive reinstalling the app.
+- Every fix can be undone. **Undo history** puts the old tags back. The undo records are kept in `Download/FixMyRips/undo`, so they survive reinstalling the app.
 - The only other files it writes go to `Download/FixMyRips` and the Download folder: the library list, a saved report, or a downloaded update.
 - No Google Play, no Google services, no accounts, no analytics.
 
