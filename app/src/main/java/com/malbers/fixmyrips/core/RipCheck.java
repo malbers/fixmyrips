@@ -583,11 +583,11 @@ public final class RipCheck {
         return new Result(a, artist, new ArrayList<>(), why, null);
     }
 
-    private static String clean(String s) {
+    static String clean(String s) {
         return s.replace("\"", " ").replace("\\", " ").trim();
     }
 
-    private static String enc(String s) {
+    static String enc(String s) {
         try {
             return URLEncoder.encode(s, "UTF-8").replace("+", "%20");
         } catch (java.io.UnsupportedEncodingException e) {

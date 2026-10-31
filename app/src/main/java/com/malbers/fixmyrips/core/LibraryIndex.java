@@ -82,6 +82,10 @@ public final class LibraryIndex {
         if (artist == null && check != null) artist = check.artist;
         String album = t.album != null ? t.album : a.dir.getName();
         Integer disc = ti.disc != null ? ti.disc : RipCheck.discFromName(a.dir.getName());
+        if (disc == null && plan != null) {
+            // A dated disc folder: the number the fix will write.
+            for (FixPlanner.Change c : plan.changes) if ("DISCNUMBER".equals(c.key)) { disc = Integer.valueOf(c.to); break; }
+        }
         String status = plan != null && !plan.reRip.isEmpty() ? RERIP
                 : check != null && check.skipped == null ? RIPPED : NOT_CHECKED;
         List<String> problems = plan != null ? new ArrayList<>(plan.reRip) : new ArrayList<>();

@@ -50,6 +50,7 @@ Stand at your shelf with your phone. No app to install, just its browser. It eve
 - **Track numbers that start at 0.** The Eversolo CD Ripper numbers the first track 0. Fixed only when every file is exactly one below the number in its file name.
 - **A missing track total**, so players can show "track 3 of 17". Added only when the rip check found the album complete.
 - **A missing disc number and disc total** on multi-disc sets, taken from "Disc 1", "Disc 2" folder names, and only when the sibling discs run 1 to N.
+- **Second discs in a dated folder.** When an album's folder name is already taken, the Eversolo CD Ripper puts the next disc in a folder like `Album-20250824181140` instead of "Disc 2". FixMyRips matches each folder's track titles against the release on MusicBrainz and adds the right disc numbers. The folder names stay as they are. A dated folder that turns out to be a second copy of the same disc is pointed out instead, and left alone.
 
 Every rule skips when it can't be sure, and says why. **A wrong tag is worse than a missing one.** Works on FLAC and MP3.
 
@@ -174,6 +175,10 @@ An APK with a different signer did not come from here.
 ## What's new
 
 Newest first. Every version is also on the [releases page](https://github.com/malbers/fixmyrips/releases).
+
+**1.0.1** (31 October 2026)
+- **New: second discs in a dated folder.** The CD Ripper sometimes names disc 2 `Album-20250824181140` instead of "Disc 2", so players show the set as two unrelated albums. FixMyRips now works out which disc each folder is from its track titles on MusicBrainz and adds the disc numbers, without renaming anything. On my own library it sorted out Mellon Collie and a Three Dog Night set, and flagged a second copy of another album instead of calling it disc 2.
+- The confirm screen scrolls, so the full explanation is readable when you fix many albums at once.
 
 **1.0.0** (31 October 2026)
 - First release. Checks every album against MusicBrainz, fixes track numbers that start at 0, missing track totals and missing disc numbers, and lists the discs that need re-ripping.

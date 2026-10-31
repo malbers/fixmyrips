@@ -20,6 +20,7 @@ import java.util.regex.Pattern;
  *       exactly one below its file name's number.</li>
  *   <li>F2: TRACKTOTAL, only when the rip check compared the folder with the release and found it complete.</li>
  *   <li>F3: DISCNUMBER from a "Disc N" folder name, and DISCTOTAL when the sibling disc folders run 1..N.</li>
+ *   <li>F4: DISCNUMBER and DISCTOTAL for a disc the ripper put in a dated folder, from {@link TimestampDiscs}.</li>
  * </ul>
  */
 public final class FixPlanner {
@@ -80,6 +81,14 @@ public final class FixPlanner {
      *              written, since only a comparison with the release proves the folder is complete)
      */
     public static Plan plan(Album album, RipCheck.Result check) {
+        return plan(album, check, null);
+    }
+
+    /**
+     * @param hint what {@link TimestampDiscs} found for a dated disc folder, or null: the disc number and total
+     *             when MusicBrainz confirmed them, else a note that is shown as it is
+     */
+    public static Plan plan(Album album, RipCheck.Result check, TimestampDiscs.Hint hint) {
         List<Change> changes = new ArrayList<>();
         List<String> notes = new ArrayList<>();
         List<String> reRip = reRipProblems(check);
@@ -145,10 +154,15 @@ public final class FixPlanner {
             }
         }
 
-        // F3: disc number and total from the folder names.
+        // F3: disc number and total from the folder names, or for a dated folder, from MusicBrainz (F4).
         Integer disc = discFromName(album.dir.getName());
+        Integer total = disc == null ? null : discTotal(album.dir);
+        if (disc == null && hint != null && hint.disc != null) {
+            disc = hint.disc;
+            total = hint.total;
+        }
+        if (hint != null && hint.note != null) notes.add(hint.note);
         if (disc != null) {
-            Integer total = discTotal(album.dir);
             for (int i = 0; i < audio.length; i++) {
                 String have = FlacTags.get(tags.get(i), "DISCNUMBER");
                 if (have == null) {

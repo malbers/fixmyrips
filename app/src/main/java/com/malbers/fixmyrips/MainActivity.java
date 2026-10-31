@@ -24,6 +24,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.malbers.fixmyrips.core.Album;
@@ -33,6 +34,7 @@ import com.malbers.fixmyrips.core.InventoryServer;
 import com.malbers.fixmyrips.core.LibraryIndex;
 import com.malbers.fixmyrips.core.AlbumScanner;
 import com.malbers.fixmyrips.core.RipCheck;
+import com.malbers.fixmyrips.core.TimestampDiscs;
 import com.malbers.fixmyrips.core.UpdateCheck;
 import com.malbers.fixmyrips.core.UrlHttp;
 import com.malbers.fixmyrips.ui.ItemAdapter;
@@ -47,6 +49,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Screens, each built fresh so nothing carries over: access, browse, checking, results, one album,
@@ -392,6 +395,8 @@ public class MainActivity extends Activity {
     private static final class Row {
         final Album album;
         final RipCheck.Result check;
+        /** What the dated-folder check found for this album, or null. Kept so every re-plan uses it. */
+        TimestampDiscs.Hint hint;
         FixPlanner.Plan plan;
 
         Row(Album album, RipCheck.Result check, FixPlanner.Plan plan) {
@@ -455,6 +460,7 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> bar.setMax(Math.max(1, all.size())));
             RipCheck check = new RipCheck(new UrlHttp(BuildConfig.USER_AGENT));
             List<LibraryIndex.Entry> listed = new ArrayList<>();
+            List<Row> made = new ArrayList<>();
             for (int i = 0; i < all.size() && !cancelled; i++) {
                 Album a = all.get(i);
                 int n = i;
@@ -466,11 +472,29 @@ public class MainActivity extends Activity {
                 RipCheck.Result r = check.check(a);
                 Row row = new Row(a, r, FixPlanner.plan(a, r));
                 listed.add(LibraryIndex.entry(a, r, row.plan));
+                made.add(row);
                 runOnUiThread(() -> {
                     rows.add(row);
                     bar.setProgress(rows.size());
                     if (row.plan.fixable() || !row.plan.reRip.isEmpty()) found.add(rowItem(row));
                 });
+            }
+            // Discs the ripper put in a dated folder ("Album-20250824181140") need every album of the set, so
+            // they are worked out once the whole folder is checked. Without dated folders this asks nothing.
+            if (!cancelled) {
+                runOnUiThread(() -> {
+                    nowBy.setText("");
+                    now.setText("Matching dated disc folders on MusicBrainz…");
+                });
+                Map<File, TimestampDiscs.Hint> hints = new TimestampDiscs(new UrlHttp(BuildConfig.USER_AGENT)).find(all);
+                for (int i = 0; i < made.size(); i++) {
+                    Row row = made.get(i);
+                    TimestampDiscs.Hint h = hints.get(row.album.dir);
+                    if (h == null) continue;
+                    row.hint = h;
+                    row.plan = FixPlanner.plan(row.album, row.check, h);
+                    listed.set(i, LibraryIndex.entry(row.album, row.check, row.plan));
+                }
             }
             // A finished scan replaces this folder's part of the library list; a stopped one is not saved,
             // since it would drop the albums it never reached.
@@ -655,10 +679,20 @@ public class MainActivity extends Activity {
                         + "and to notice when a track is missing. The online check confirmed " + to + " tracks and all " + files
                         + " are here, so the fix adds " + to + "."};
             case "DISCNUMBER":
+                if (r.hint != null && r.hint.disc != null) {
+                    return new String[] {"Which disc this is isn't recorded",
+                            "This folder is disc " + to + " of a " + r.hint.total + "-disc set. The CD ripper gave the folder a date and time "
+                            + "instead of a disc number, and the files don't say which disc it is either. MusicBrainz lists these exact "
+                            + "tracks, in this order, as disc " + to + ", so the fix adds " + to + ". The folder name stays as it is."};
+                }
                 return new String[] {"Which disc this is isn't recorded",
                         "This folder is disc " + to + " of a set, but the files don't say so. Without it, players can mix the discs "
                         + "together or put them in the wrong order. The fix takes the disc number from the folder name."};
             case "DISCTOTAL":
+                if (r.hint != null && r.hint.disc != null) {
+                    return new String[] {"The number of discs in the set is missing",
+                            "The files don't say how many discs the set has. MusicBrainz lists it as " + to + " discs, so the fix adds " + to + "."};
+                }
                 return new String[] {"The number of discs in the set is missing",
                         "The files don't say how many discs the set has. The other disc folders are all here (" + to
                         + " in total), so the fix adds " + to + "."};
@@ -704,7 +738,10 @@ public class MainActivity extends Activity {
                 + "Every fix is saved in Undo history, so you can put the old tags back later. "
                 + "(Undo records are kept in Download/FixMyRips/undo, so they survive reinstalling the app.)", 15, Ui.SUB, false);
         t.setPadding(0, Ui.dp(this, 10), 0, 0);
-        body.addView(t);
+        // A long album list pushes the explanation below the card's edge; scrolling keeps all of it readable.
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(t);
+        body.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         frame(Screen.CONFIRM, scanRoot.getPath(), body,
                 Ui.button(this, "Cancel", v -> showResults()),
                 Ui.button(this, "Fix", true, v -> startFix(todo)));
@@ -754,7 +791,7 @@ public class MainActivity extends Activity {
                     failed.add(r.album.dir.getName() + ": " + e.getMessage());
                     item = new ItemAdapter.Item(r.album.dir.getName(), e.getMessage(), "Not fixed", Ui.BAD, null, false, null);
                 }
-                r.plan = FixPlanner.plan(r.album, r.check);
+                r.plan = FixPlanner.plan(r.album, r.check, r.hint);
                 ItemAdapter.Item shown = item;
                 runOnUiThread(() -> {
                     log.add(shown);
@@ -848,7 +885,7 @@ public class MainActivity extends Activity {
                 String m = msg;
                 runOnUiThread(() -> {
                     if (m == null) {
-                        for (Row r : rows) if (r.album.dir.getPath().equals(albumPath)) r.plan = FixPlanner.plan(r.album, r.check);
+                        for (Row r : rows) if (r.album.dir.getPath().equals(albumPath)) r.plan = FixPlanner.plan(r.album, r.check, r.hint);
                         showUndone(album, d == null ? null : d[2]);
                     } else {
                         t.setText("Couldn't undo everything: " + m + "\n\nThe undo record is kept.");
