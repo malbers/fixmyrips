@@ -2,6 +2,8 @@
 
 Finds and fixes the errors in CDs ripped on an Eversolo streamer. It checks every album against its release, corrects the tags it can fix safely, and tells you which discs need ripping again.
 
+**Bonus: scan a CD with your phone.** Snap the barcode on any CD on your shelf and your phone tells you if it's already ripped, ripped with problems, or still to do. [More below](#scan-a-cd-with-your-phone-is-it-ripped).
+
 Built for the Eversolo DMP-A6, whose CD Ripper leaves gaps in the tags: track numbers that start at 0, no track total, no disc number on multi-disc sets. It runs on the device itself, so there is no PC, no network share and no tagging software involved.
 
 ![Results for a 143-album library: 113 fixable, 5 to re-rip, 12 OK, 14 not checked](docs/screenshots/3-results.jpg)
