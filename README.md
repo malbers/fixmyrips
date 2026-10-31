@@ -163,6 +163,16 @@ b65d2e5f181f31fc839b91d5c37004aea3ba742a3e93aab2696430492feb159b
 
 An APK with a different signer did not come from here.
 
+## What's new
+
+Newest first. Every version is also on the [releases page](https://github.com/malbers/fixmyrips/releases).
+
+**1.0.0** (31 October 2026)
+- First release. Checks every album against MusicBrainz, fixes track numbers that start at 0, missing track totals and missing disc numbers, and lists the discs that need re-ripping.
+- Every fix shows its changes first, fingerprints the audio before and after, and can be undone.
+- Rip Inventory: scan a CD's barcode with your phone to see if it's already ripped.
+- FLAC and MP3.
+
 ## Tested on
 
 Eversolo DMP-A6 (Gen 1), Android 11, with CD Ripper FLAC rips. It should work on other Android-based streamers, but that is untested.
