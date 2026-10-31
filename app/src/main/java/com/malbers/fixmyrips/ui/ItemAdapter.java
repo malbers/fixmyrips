@@ -31,6 +31,14 @@ public final class ItemAdapter extends BaseAdapter {
             return this;
         }
 
+        /** Show the whole second line instead of cutting it off (explanations, not file names). */
+        public boolean wrap;
+
+        public Item withWrap() {
+            wrap = true;
+            return this;
+        }
+
         public Item(String title, String sub, String status, int statusColor, Bitmap thumb, boolean showThumb, Object tag) {
             this.title = title;
             this.sub = sub;
@@ -75,6 +83,8 @@ public final class ItemAdapter extends BaseAdapter {
         h.title.setText(it.title);
         h.sub.setText(it.sub == null ? "" : it.sub);
         h.sub.setVisibility(it.sub == null ? View.GONE : View.VISIBLE);
+        h.sub.setSingleLine(!it.wrap);
+        h.sub.setEllipsize(it.wrap ? null : android.text.TextUtils.TruncateAt.END);
         h.status.setText(it.status == null ? "" : it.status);
         h.status.setTextColor(it.statusColor);
         return h.root;

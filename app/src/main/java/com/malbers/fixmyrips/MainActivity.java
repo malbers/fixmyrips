@@ -605,17 +605,17 @@ public class MainActivity extends Activity {
         for (FixPlanner.Change c : r.plan.changes) if (!kinds.contains(c.key)) kinds.add(c.key);
         for (String k : kinds) {
             String[] e = explain(k, r);
-            adapter.add(new ItemAdapter.Item(e[0], e[1], "why", Ui.ACCENT, null, false, null));
+            adapter.add(new ItemAdapter.Item(e[0], e[1], "why", Ui.ACCENT, null, false, null).withWrap());
         }
         for (String p : r.plan.reRip) {
             adapter.add(new ItemAdapter.Item("Some tracks need ripping again", p
-                    + ". Changing tags can't bring back missing or damaged audio; rip those tracks from the CD again.", "can't fix", Ui.BAD, null, false, null));
+                    + ". Changing tags can't bring back missing or damaged audio; rip those tracks from the CD again.", "can't fix", Ui.BAD, null, false, null).withWrap());
         }
         for (FixPlanner.Change c : r.plan.changes) {
             adapter.add(new ItemAdapter.Item(c.file.getName(), plainKey(c.key) + ":  " + (c.from == null ? "none" : c.from) + "  →  " + c.to
                     + "     (" + c.key + ")", "change", Ui.SUB, null, false, null));
         }
-        for (String p : r.plan.notes) adapter.add(new ItemAdapter.Item("Left alone, on purpose", p, null, Ui.SUB, null, false, null));
+        for (String p : r.plan.notes) adapter.add(new ItemAdapter.Item("Left alone, on purpose", p, null, Ui.SUB, null, false, null).withWrap());
 
         LinearLayout body = Ui.column(this);
         String by = basisPlain(r.check);
