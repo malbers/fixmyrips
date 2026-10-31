@@ -138,14 +138,52 @@ public final class Inventory {
             else if (nameMatches(e, releases)) byName.add(e);
         }
 
-        if (!exact.isEmpty()) return answer(RIPPED, top, exact, "Ripped, same edition");
-        if (!sameGroup.isEmpty()) {
-            boolean knownOther = false;
-            for (LibraryIndex.Entry e : sameGroup) if (e.releaseId != null) knownOther = true;
-            return answer(OTHER_EDITION, top, sameGroup, knownOther ? "Ripped, but a different edition" : "Ripped (edition not confirmed)");
+        // The release ID in the tags is whichever edition the ripper matched to the disc; several editions
+        // share one disc, so a different ID is not a different CD (Michael's own Doors CD read as "different
+        // edition", 2026-10-30). What tells editions apart for a rip is the track list, so compare counts.
+        List<LibraryIndex.Entry> album = new ArrayList<>(exact);
+        album.addAll(sameGroup);
+        if (!album.isEmpty()) {
+            Integer[] diff = countDiff(album, releases);
+            if (diff == null) return answer(RIPPED, top, album, "Ripped · " + album.get(0).tracks + " tracks, matches this CD");
+            if (diff.length == 0) return answer(RIPPED, top, album, "Ripped");
+            return answer(OTHER_EDITION, top, album, "Ripped, but a different edition: this CD has " + diff[0]
+                    + " tracks, your rip has " + diff[1]);
         }
-        if (!byName.isEmpty()) return answer(PROBABLY, top, byName, "Probably ripped (matched by name)");
+        if (!byName.isEmpty()) {
+            Integer[] diff = countDiff(byName, releases);
+            return answer(PROBABLY, top, byName, diff == null ? "Probably ripped (matched by name) · track count matches"
+                    : diff.length == 0 ? "Probably ripped (matched by name)"
+                    : "Probably ripped (matched by name), but this CD has " + diff[0] + " tracks and your rip has " + diff[1]);
+        }
         return new Answer(NOT_RIPPED, top.title, top.artist, new ArrayList<>(), "Not ripped yet");
+    }
+
+    /**
+     * Null when some scanned release has the same number of tracks as a matched rip (per disc when the rip
+     * is one disc of a set); else {this CD's count, the rip's count}; an empty array when there is nothing to
+     * go on: no counts, or only rips that need re-ripping, whose count is short for a different reason.
+     */
+    static Integer[] countDiff(List<LibraryIndex.Entry> found, List<Release> releases) {
+        Integer[] first = null;
+        for (LibraryIndex.Entry e : found) {
+            for (Release r : releases) {
+                int want = expected(r, e);
+                if (want <= 0) continue;
+                if (want == e.tracks) return null;
+                if (first == null && !LibraryIndex.RERIP.equals(e.status)) first = new Integer[] {want, e.tracks};
+            }
+        }
+        return first != null ? first : new Integer[0];
+    }
+
+    /** The release's track count for this rip: its disc's when the rip is one disc of a set, else the whole release. */
+    private static int expected(Release r, LibraryIndex.Entry e) {
+        if (r.tracksPerDisc.isEmpty()) return 0;
+        if (r.discs > 1 && e.disc != null && e.disc <= r.tracksPerDisc.size()) return r.tracksPerDisc.get(e.disc - 1);
+        int sum = 0;
+        for (int n : r.tracksPerDisc) sum += n;
+        return sum;
     }
 
     /** Typed search: every word of the query appears in the album's artist and title. */

@@ -32,24 +32,40 @@ public class InventoryTest {
     @Test
     public void sameReleaseIdIsCertain() {
         Inventory.Answer a = Inventory.match(lib(e("Van Morrison", "A Night in San Francisco", "rel-1", "g-1", null, LibraryIndex.RIPPED)),
-                Arrays.asList(r("rel-1", "g-1", "A Night in San Francisco", "Van Morrison", 14)));
+                Arrays.asList(r("rel-1", "g-1", "A Night in San Francisco", "Van Morrison", 12)));
         assertEquals(Inventory.RIPPED, a.verdict);
-        assertEquals("Ripped, same edition", a.message);
+        assertEquals("Ripped · 12 tracks, matches this CD", a.message);
+    }
+
+    @Test
+    public void anotherReleaseIdWithTheSameTrackCountIsTheSameCd() {
+        // Michael's Doors CD: the ripper tagged a sibling edition of the same disc.
+        Inventory.Answer a = Inventory.match(lib(e("The Doors", "The Doors: Original Soundtrack Recording", "ripper-pick", "g-doors", null, LibraryIndex.RIPPED)),
+                Arrays.asList(r("case-barcode", "g-doors", "The Doors: Music From The Original Motion Picture", "The Doors", 12)));
+        assertEquals(Inventory.RIPPED, a.verdict);
+    }
+
+    @Test
+    public void rerunRipIsRippedWithTheRerunNotAMatchClaim() {
+        Inventory.Answer a = Inventory.match(lib(e("Commodores", "Anthology", "rel", "g-c", null, LibraryIndex.RERIP, "17 of 21 tracks")),
+                Arrays.asList(r("rel-2", "g-c", "Anthology", "Commodores", 21)));
+        assertEquals(Inventory.RIPPED, a.verdict);
+        assertEquals("Ripped · needs a re-rip: 17 of 21 tracks", a.message);
     }
 
     @Test
     public void sameGroupWithAnotherReleaseIdIsADifferentEdition() {
         Inventory.Answer a = Inventory.match(lib(e("The Beatles", "Help!", "uk-14", "g-help", null, LibraryIndex.RIPPED)),
-                Arrays.asList(r("us-12", "g-help", "Help!", "The Beatles", 12)));
+                Arrays.asList(r("uk-14", "g-help", "Help!", "The Beatles", 14)));
         assertEquals(Inventory.OTHER_EDITION, a.verdict);
-        assertEquals("Ripped, but a different edition", a.message);
+        assertEquals("Ripped, but a different edition: this CD has 14 tracks, your rip has 12", a.message);
     }
 
     @Test
     public void groupFromTheLookupOnlyIsUnconfirmedEdition() {
         Inventory.Answer a = Inventory.match(lib(e("Carole King", "Tapestry", null, "g-tap", null, LibraryIndex.RIPPED)),
-                Arrays.asList(r("x", "g-tap", "Tapestry", "Carole King", 12)));
-        assertEquals("Ripped (edition not confirmed)", a.message);
+                Arrays.asList(r("x", "g-tap", "Tapestry (bonus)", "Carole King", 14), r("y", "g-tap", "Tapestry", "Carole King", 12)));
+        assertEquals("Ripped · 12 tracks, matches this CD", a.message);
     }
 
     @Test
@@ -58,7 +74,7 @@ public class InventoryTest {
                         LibraryIndex.RERIP, "17 of 21 tracks, missing 17, 19, 20, 21")),
                 Arrays.asList(r("y", "g-y", "Anthology: The Best of The Commodores", "Commodores", 21)));
         assertEquals(Inventory.PROBABLY, a.verdict);
-        assertTrue(a.message, a.message.startsWith("Probably ripped (matched by name)"));
+        assertTrue(a.message, a.message.startsWith("Probably ripped (matched by name) · needs a re-rip"));
         assertTrue(a.message, a.message.contains("needs a re-rip: 17 of 21 tracks"));
     }
 
