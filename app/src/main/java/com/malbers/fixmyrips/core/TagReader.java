@@ -226,8 +226,15 @@ public final class TagReader {
 
     // ---- ID3v2 ----
 
+    /** ID3v2.2 frame names (three letters, early iTunes) mapped to their v2.3 equivalents. */
+    private static final java.util.Map<String, String> V22 = new java.util.HashMap<>();
+    static {
+        String[] m = {"TAL", "TALB", "TP1", "TPE1", "TP2", "TPE2", "TRK", "TRCK", "TPA", "TPOS", "TXX", "TXXX"};
+        for (int i = 0; i < m.length; i += 2) V22.put(m[i], m[i + 1]);
+    }
+
     private static Builder id3(DataInputStream in, int major) throws IOException {
-        if (major != 3 && major != 4) return null;
+        if (major != 2 && major != 3 && major != 4) return null;
         in.readUnsignedByte(); // revision
         int flags = in.readUnsignedByte();
         int size = syncsafe(in.readInt());
@@ -235,16 +242,24 @@ public final class TagReader {
         byte[] tag = new byte[size];
         in.readFully(tag);
         int p = 0;
-        if ((flags & 0x40) != 0) { // extended header
+        if (major > 2 && (flags & 0x40) != 0) { // extended header
             int ext = major == 4 ? syncsafe(be32(tag, 0)) : be32(tag, 0) + 4;
             p += ext;
         }
         Builder b = new Builder();
-        while (p + 10 <= tag.length) {
+        int head = major == 2 ? 6 : 10;
+        while (p + head <= tag.length) {
             if (tag[p] == 0) break; // padding
-            String id = new String(tag, p, 4, StandardCharsets.US_ASCII);
-            int len = major == 4 ? syncsafe(be32(tag, p + 4)) : be32(tag, p + 4);
-            p += 10;
+            String id;
+            int len;
+            if (major == 2) {
+                id = V22.getOrDefault(new String(tag, p, 3, StandardCharsets.US_ASCII), "");
+                len = (tag[p + 3] & 0xff) << 16 | (tag[p + 4] & 0xff) << 8 | (tag[p + 5] & 0xff);
+            } else {
+                id = new String(tag, p, 4, StandardCharsets.US_ASCII);
+                len = major == 4 ? syncsafe(be32(tag, p + 4)) : be32(tag, p + 4);
+            }
+            p += head;
             if (len < 0 || p + len > tag.length) break;
             switch (id) {
                 case "TALB": b.put("ALBUM", text(tag, p, len)); break;

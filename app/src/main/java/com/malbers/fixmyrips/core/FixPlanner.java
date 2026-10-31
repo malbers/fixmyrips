@@ -88,8 +88,8 @@ public final class FixPlanner {
         if (audio == null || audio.length == 0) return new Plan(album, changes, notes, reRip);
         Arrays.sort(audio, Comparator.comparing(f -> f.getName().toLowerCase(Locale.ROOT)));
         for (File f : audio) {
-            if (!f.getName().toLowerCase(Locale.ROOT).endsWith(".flac")) {
-                notes.add("not changed: only FLAC files can be fixed (" + f.getName() + ")");
+            if (TagFiles.format(f) == null) {
+                notes.add("not changed: only FLAC and MP3 files can be fixed (" + f.getName() + ")");
                 return new Plan(album, changes, notes, reRip);
             }
         }
@@ -98,7 +98,7 @@ public final class FixPlanner {
         List<TrackInfo> info = new ArrayList<>();
         for (File f : audio) {
             try {
-                tags.add(FlacTags.read(f).comments);
+                tags.add(TagFiles.comments(f));
             } catch (IOException e) {
                 notes.add("not changed: " + f.getName() + " can't be read (" + e.getMessage() + ")");
                 return new Plan(album, new ArrayList<>(), notes, reRip);

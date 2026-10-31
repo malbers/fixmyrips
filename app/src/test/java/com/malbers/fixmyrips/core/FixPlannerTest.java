@@ -130,15 +130,6 @@ public class FixPlannerTest {
     }
 
     @Test
-    public void mp3AlbumsAreNotTouched() throws IOException {
-        File dir = tmp.newFolder("Old");
-        Files.write(new File(dir, "01.mp3").toPath(), new byte[] {'I', 'D', '3', 3, 0, 0, 0, 0, 0, 0});
-        FixPlanner.Plan p = FixPlanner.plan(new Album(dir, 1, null, null, false), null);
-        assertFalse(p.fixable());
-        assertTrue(p.notes.get(0).contains("only FLAC"));
-    }
-
-    @Test
     public void fixAppliesThePlanAndUndoRestoresEveryByte() throws IOException {
         File dir = tmp.newFolder("Anthology");
         Album a = TestFlac.album(dir, 3, 0);

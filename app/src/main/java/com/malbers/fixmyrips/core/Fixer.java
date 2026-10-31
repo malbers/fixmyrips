@@ -40,12 +40,12 @@ public final class Fixer {
             for (FixPlanner.Change c : plan.changes) changes.put(c.toString());
             rec.put("changes", changes);
             for (File f : files) {
-                FlacTags.Written s = FlacTags.snapshot(f);
+                FlacTags.Written s = TagFiles.snapshot(f);
                 before.add(s);
-                entries.put(new JSONObject()
-                        .put("path", f.getPath())
-                        .put("blocks", compact(s.originalHeader))
-                        .put("audio", s.audioSha256));
+                JSONObject entry = new JSONObject().put("path", f.getPath()).put("audio", s.audioSha256);
+                if (TagFiles.ID3.equals(TagFiles.format(f))) entry.put("id3", compactId3(s.originalHeader));
+                else entry.put("blocks", compact(s.originalHeader));
+                entries.put(entry);
             }
             rec.put("files", entries);
         } catch (JSONException e) {
@@ -59,14 +59,14 @@ public final class Fixer {
         int done = 0;
         try {
             for (File f : files) {
-                List<String> tags = FixPlanner.apply(FlacTags.read(f).comments, plan.changes, f);
-                FlacTags.write(f, tags);
+                List<String> tags = FixPlanner.apply(TagFiles.comments(f), plan.changes, f);
+                TagFiles.write(f, tags);
                 done++;
             }
         } catch (IOException e) {
             for (int i = 0; i < done; i++) {
                 try {
-                    FlacTags.undo(files.get(i), before.get(i).originalHeader, before.get(i).audioSha256);
+                    TagFiles.undo(files.get(i), before.get(i).originalHeader, before.get(i).audioSha256);
                 } catch (IOException ignored) {
                     // The record stays, so Undo can still be tried from the app.
                 }
@@ -90,8 +90,10 @@ public final class Fixer {
                 JSONObject e = files.getJSONObject(i);
                 File f = new File(e.getString("path"));
                 try {
-                    byte[] header = e.has("blocks") ? expand(e.getJSONArray("blocks"), f) : Base64.getDecoder().decode(e.getString("header"));
-                    FlacTags.undo(f, header, e.getString("audio"));
+                    byte[] header = e.has("blocks") ? expand(e.getJSONArray("blocks"), f)
+                            : e.has("id3") ? expandId3(e.getJSONObject("id3"), f)
+                            : Base64.getDecoder().decode(e.getString("header"));
+                    TagFiles.undo(f, header, e.getString("audio"));
                 } catch (IOException ex) {
                     failed.add(f.getName() + " (" + ex.getMessage() + ")");
                 }
@@ -162,6 +164,46 @@ public final class Fixer {
             }
         }
         return FlacTags.serialize(types, data);
+    }
+
+    /** An MP3's ID3 tag: its 10-byte header, each frame (big ones, i.e. covers, by fingerprint) and the padding length. */
+    static JSONObject compactId3(byte[] tag) throws JSONException, IOException {
+        JSONObject o = new JSONObject();
+        JSONArray frames = new JSONArray();
+        int padding = 0;
+        if (tag.length >= 10) {
+            o.put("head", Base64.getEncoder().encodeToString(Arrays.copyOfRange(tag, 0, 10)));
+            for (byte[] raw : Id3Tags.rawFrames(tag)) {
+                frames.put(raw.length >= BY_FINGERPRINT ? new JSONObject().put("len", raw.length).put("sha", sha(raw))
+                        : new JSONObject().put("data", Base64.getEncoder().encodeToString(raw)));
+                padding -= raw.length;
+            }
+            padding += tag.length - 10;
+        } else {
+            o.put("head", "");
+        }
+        return o.put("frames", frames).put("padding", padding);
+    }
+
+    static byte[] expandId3(JSONObject o, File f) throws IOException, JSONException {
+        java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+        byte[] head = Base64.getDecoder().decode(o.getString("head"));
+        b.write(head, 0, head.length);
+        Id3Tags.Tag now = Id3Tags.parse(f);
+        JSONArray frames = o.getJSONArray("frames");
+        for (int i = 0; i < frames.length(); i++) {
+            JSONObject fr = frames.getJSONObject(i);
+            byte[] raw = null;
+            if (fr.has("data")) {
+                raw = Base64.getDecoder().decode(fr.getString("data"));
+            } else {
+                for (Id3Tags.Frame cur : now.frames) if (cur.raw.length == fr.getInt("len") && sha(cur.raw).equals(fr.getString("sha"))) { raw = cur.raw; break; }
+                if (raw == null) throw new FlacTags.NotEditable("an embedded picture has changed since the fix");
+            }
+            b.write(raw, 0, raw.length);
+        }
+        for (int i = 0; i < o.getInt("padding"); i++) b.write(0);
+        return b.toByteArray();
     }
 
     private static boolean allZero(byte[] d) {

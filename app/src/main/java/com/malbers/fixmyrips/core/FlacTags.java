@@ -220,7 +220,7 @@ public final class FlacTags {
         if (!audioSha256(f, after.audioOffset).equals(audioSha256)) throw new IOException("audio check failed after undo");
     }
 
-    private static void restore(File f, byte[] header, long currentAudioOffset) throws IOException {
+    static void restore(File f, byte[] header, long currentAudioOffset) throws IOException {
         if (header.length == currentAudioOffset) {
             try (RandomAccessFile raf = new RandomAccessFile(f, "rw")) {
                 raf.seek(0);
@@ -233,7 +233,7 @@ public final class FlacTags {
     }
 
     /** Writes {@code header} + the audio from {@code audioOffset} to name.tmp, then renames it over the file. */
-    private static void rebuild(File f, byte[] header, long audioOffset) throws IOException {
+    static void rebuild(File f, byte[] header, long audioOffset) throws IOException {
         File tmp = new File(f.getParentFile(), f.getName() + ".tmp");
         try (InputStream in = new FileInputStream(f); FileOutputStream out = new FileOutputStream(tmp)) {
             out.write(header);
