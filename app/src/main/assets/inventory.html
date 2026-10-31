@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Rip Inventory</title>
+<style>
+  :root { --bg:#14171F; --card:#1F2430; --hi:#2A3142; --text:#ECEFF4; --sub:#9AA3B2; --accent:#F0A63C; --good:#3CC46E; --bad:#E5636B; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.4 -apple-system, system-ui, sans-serif; padding:16px 16px 40px; }
+  h1 { font-size:22px; margin:4px 0 2px; }
+  .sub { color:var(--sub); font-size:14px; }
+  .card { background:var(--card); border-radius:16px; padding:16px; margin-top:14px; }
+  .snap { display:block; text-align:center; background:var(--accent); color:#1a1300; font-weight:700; font-size:19px; padding:18px; border-radius:14px; margin-top:14px; }
+  .snap input { display:none; }
+  .row { display:flex; gap:8px; margin-top:12px; }
+  input[type=search] { flex:1; min-width:0; background:var(--hi); border:0; color:var(--text); font-size:16px; padding:12px; border-radius:10px; }
+  button { background:var(--hi); color:var(--text); border:0; font-size:16px; padding:12px 14px; border-radius:10px; font-weight:600; }
+  .verdict { font-size:20px; font-weight:700; }
+  .ripped { color:var(--good); } .other-edition { color:var(--good); } .probably { color:var(--accent); }
+  .not-ripped { color:var(--bad); } .unknown-barcode, .error { color:var(--sub); }
+  .match { border-top:1px solid var(--hi); padding-top:8px; margin-top:8px; font-size:15px; }
+  .rerip { color:var(--bad); }
+  ul { padding-left:18px; margin:8px 0 0; }
+  label.stack { display:flex; align-items:center; gap:8px; margin-top:12px; color:var(--sub); }
+  .muted { color:var(--sub); font-size:13px; margin-top:8px; }
+</style>
+</head>
+<body>
+<h1>Rip Inventory</h1>
+<div class="sub" id="lib">Loading your library list…</div>
+
+<label class="snap">📷 Snap a CD barcode
+  <input id="photo" type="file" accept="image/*" capture="environment">
+</label>
+<div class="row">
+  <input id="q" type="search" placeholder="…or type artist or album" autocomplete="off">
+  <button id="go">Search</button>
+</div>
+<label class="stack"><input type="checkbox" id="stackMode"> Stack mode: add anything that needs ripping to a list</label>
+
+<div class="card" id="out" hidden></div>
+
+<div class="card" id="stackCard" hidden>
+  <div class="verdict">To rip <span id="stackCount"></span></div>
+  <ul id="stackList"></ul>
+  <div class="row"><button id="copy">Copy list</button><button id="clear">Clear</button></div>
+</div>
+
+<div class="muted">Served by FixMyRips on your Eversolo, on your home network only. Barcodes are looked up on MusicBrainz, the free music database.</div>
+
+<script src="zxing.min.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var stack = [];
+  try { stack = JSON.parse(localStorage.getItem('fmr-stack') || '[]'); $('stackMode').checked = localStorage.getItem('fmr-stack-mode') === '1'; } catch (e) {}
+  function saveStack() { try { localStorage.setItem('fmr-stack', JSON.stringify(stack)); localStorage.setItem('fmr-stack-mode', $('stackMode').checked ? '1' : '0'); } catch (e) {} drawStack(); }
+  function drawStack() {
+    $('stackCard').hidden = stack.length === 0;
+    $('stackCount').textContent = '(' + stack.length + ')';
+    $('stackList').innerHTML = '';
+    stack.forEach(function (s) { var li = document.createElement('li'); li.textContent = s; $('stackList').appendChild(li); });
+  }
+  drawStack();
+  $('stackMode').onchange = saveStack;
+  $('clear').onclick = function () { stack = []; saveStack(); };
+  $('copy').onclick = function () {
+    var text = stack.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { $('copy').textContent = 'Copied'; }, fallback);
+    else fallback();
+    function fallback() { var t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); $('copy').textContent = 'Copied'; } catch (e) {} t.remove(); }
+  };
+
+  fetch('library').then(function (r) { return r.json(); }).then(function (l) {
+    $('lib').textContent = l.albums
+      ? 'Library list: ' + l.albums + ' albums, from ' + new Date(l.updated).toLocaleString()
+      : 'No library list yet. On the Eversolo, scan your music folders in FixMyRips first.';
+  }).catch(function () { $('lib').textContent = "Can't reach FixMyRips. Is its Rip Inventory screen still open?"; });
+
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+
+  function show(a, label) {
+    var out = $('out');
+    out.hidden = false;
+    if (a.error) { out.innerHTML = '<div class="verdict error">' + esc(a.error) + '</div>'; return; }
+    var h = '<div class="verdict ' + esc(a.verdict) + '">' + esc(a.message) + '</div>';
+    if (a.title) h += '<div>' + esc(a.title) + (a.artist ? ' · ' + esc(a.artist) : '') + '</div>';
+    if (a.barcode) h += '<div class="muted">Barcode ' + esc(a.barcode) + '</div>';
+    (a.matches || []).forEach(function (m) {
+      h += '<div class="match"><b>' + esc(m.artist || '') + (m.artist ? ' · ' : '') + esc(m.album || '') + '</b>'
+        + (m.disc ? ' (disc ' + esc(m.disc) + ')' : '')
+        + '<div class="muted">' + esc(m.path) + '</div>'
+        + (m.problems && m.problems.length ? '<div class="rerip">Re-rip: ' + esc(m.problems.join(' · ')) + '</div>' : '')
+        + '</div>';
+    });
+    out.innerHTML = h;
+    if ($('stackMode').checked && (a.verdict === 'not-ripped' || (a.matches || []).some(function (m) { return m.status === 'rerip'; }))) {
+      var line = (a.artist ? a.artist + ' · ' : '') + (a.title || label) + (a.verdict === 'not-ripped' ? '' : ' (re-rip)');
+      if (stack.indexOf(line) < 0) { stack.push(line); saveStack(); }
+    }
+  }
+
+  function ask(url, label) {
+    $('out').hidden = false;
+    $('out').innerHTML = '<div class="verdict">Looking it up…</div>';
+    fetch(url).then(function (r) { return r.json(); }).then(function (a) { show(a, label); })
+      .catch(function () { show({ error: "Can't reach FixMyRips. Is its Rip Inventory screen still open?" }); });
+  }
+
+  $('go').onclick = function () { var q = $('q').value.trim(); if (q) ask('find?q=' + encodeURIComponent(q), q); };
+  $('q').onkeydown = function (e) { if (e.key === 'Enter') $('go').onclick(); };
+
+  // Barcode from a photo: scale it down, then try the picture as taken and turned a quarter.
+  var hints = new Map();
+  hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_E]);
+  hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+  var reader = new ZXing.MultiFormatReader();
+  reader.setHints(hints);
+
+  function decode(img) {
+    var max = 1600, scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    var w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+    for (var turn = 0; turn < 2; turn++) {
+      var c = document.createElement('canvas');
+      c.width = turn ? h : w; c.height = turn ? w : h;
+      var g = c.getContext('2d');
+      if (turn) { g.translate(h, 0); g.rotate(Math.PI / 2); }
+      g.drawImage(img, 0, 0, w, h);
+      try {
+        var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(c)));
+        return reader.decode(bmp).getText();
+      } catch (e) { /* try the other way round */ }
+    }
+    return null;
+  }
+
+  $('photo').onchange = function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    $('out').hidden = false;
+    $('out').innerHTML = '<div class="verdict">Reading the barcode…</div>';
+    var url = URL.createObjectURL(f), img = new Image();
+    img.onload = function () {
+      var code = decode(img);
+      URL.revokeObjectURL(url);
+      $('photo').value = '';
+      if (code) ask('check?barcode=' + encodeURIComponent(code), code);
+      else show({ error: "Couldn't read a barcode. Fill the picture with it, keep it sharp and well lit, and try again, or type the album." });
+    };
+    img.onerror = function () { show({ error: "Couldn't open that picture." }); };
+    img.src = url;
+  };
+})();
+</script>
+</body>
+</html>

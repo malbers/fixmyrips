@@ -165,6 +165,29 @@ public class FixPlannerTest {
     }
 
     @Test
+    public void undoRecordKeepsCoversByFingerprintAndStillRestoresEveryByte() throws IOException {
+        File dir = tmp.newFolder("WithCover");
+        File f = new File(dir, "01.Track.flac");
+        byte[] si = new byte[34];
+        si[10] = 0x0A; si[11] = (byte) 0xC4; si[12] = 0x40;
+        byte[] cover = new byte[60_000];
+        new java.util.Random(7).nextBytes(cover);
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
+            out.write(FlacTags.serialize(Arrays.asList(FlacTags.STREAMINFO, FlacTags.VORBIS_COMMENT, 6, FlacTags.PADDING),
+                    Arrays.asList(si, FlacTags.buildComments("x", Arrays.asList("TRACKNUMBER=0")), cover, new byte[512])));
+            out.write(new byte[50_000]);
+        }
+        byte[] before = Files.readAllBytes(f.toPath());
+        Album a = new Album(dir, 1, f, null, false);
+
+        File rec = Fixer.fix(FixPlanner.plan(a, null), tmp.newFolder("undo"), 5L);
+
+        assertTrue("record should not carry the cover: " + rec.length(), rec.length() < 5_000);
+        Fixer.undo(rec);
+        assertArrayEquals(before, Files.readAllBytes(f.toPath()));
+    }
+
+    @Test
     public void undoKeepsTheRecordWhenAFileWasReplaced() throws IOException {
         File dir = tmp.newFolder("A");
         Album a = TestFlac.album(dir, 2, 0);

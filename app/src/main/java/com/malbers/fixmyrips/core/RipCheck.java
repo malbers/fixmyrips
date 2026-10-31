@@ -67,13 +67,27 @@ public final class RipCheck {
         public final String skipped;
         /** What the album was compared with: one of the BY_ constants, or null when skipped. */
         public final String basis;
+        /**
+         * The MusicBrainz release group (the album across all its editions), when it is certain: from the
+         * release ID in the tags, or from a search whose matching editions all belong to one group. Null otherwise.
+         */
+        public final String releaseGroup;
 
         Result(Album album, String artist, List<String> problems, String skipped, String basis) {
+            this(album, artist, problems, skipped, basis, null);
+        }
+
+        Result(Album album, String artist, List<String> problems, String skipped, String basis, String releaseGroup) {
             this.album = album;
             this.artist = artist;
             this.problems = problems;
             this.skipped = skipped;
             this.basis = basis;
+            this.releaseGroup = releaseGroup;
+        }
+
+        Result withGroup(String group) {
+            return new Result(album, artist, problems, skipped, basis, group);
         }
 
         public boolean ok() {
@@ -138,7 +152,7 @@ public final class RipCheck {
             String stray = strayFiles(a.dir);
             if (stray != null) problems.add(stray);
         }
-        return new Result(a, artist, problems, null, r.basis);
+        return new Result(a, artist, problems, null, r.basis, r.releaseGroup);
     }
 
     private Result verdict(Album a, String artist, List<TrackInfo> tracks, Tags tags, File first, String mbid, Integer disc) {
@@ -178,14 +192,16 @@ public final class RipCheck {
     // ---- 1. MusicBrainz ID ----
 
     private Result byId(Album a, String artist, List<TrackInfo> tracks, String mbid, Integer disc) throws IOException, JSONException {
-        Http.Response res = http.get(ArtLookup.MB + "release/" + enc(mbid) + "?inc=recordings&fmt=json");
+        Http.Response res = http.get(ArtLookup.MB + "release/" + enc(mbid) + "?inc=recordings+release-groups&fmt=json");
         if (res.code == 404 || res.code == 400) return skip(a, artist, NOT_ON_MB);
         if (res.code != 200) return skip(a, artist, NETWORK);
-        JSONArray media = new JSONObject(new String(res.body, StandardCharsets.UTF_8)).optJSONArray("media");
+        JSONObject rel = new JSONObject(new String(res.body, StandardCharsets.UTF_8));
+        String group = groupId(rel);
+        JSONArray media = rel.optJSONArray("media");
         if (media == null || media.length() == 0) return skip(a, artist, NOT_ON_MB);
         JSONObject medium = pickMedium(media, disc);
-        if (medium == null) return skip(a, artist, WHICH_DISC);
-        return new Result(a, artist, compare(tracks, medium), null, BY_ID);
+        if (medium == null) return skip(a, artist, WHICH_DISC).withGroup(group);
+        return new Result(a, artist, compare(tracks, medium), null, BY_ID, group);
     }
 
     // ---- 2. tags ----
@@ -283,10 +299,11 @@ public final class RipCheck {
         if (res.code != 200) return skip(a, artistOrFolder, NO_INFO);
         JSONArray releases = new JSONObject(new String(res.body, StandardCharsets.UTF_8)).optJSONArray("releases");
         List<JSONObject> pool = candidates(releases, artist, album);
+        String group = sharedGroup(pool);
         Integer expected = agreedCount(pool, disc, tracks.size());
-        if (expected == null) return skip(a, artistOrFolder, NO_INFO);
-        if (expected == WHICH) return skip(a, artistOrFolder, WHICH_DISC);
-        return new Result(a, artistOrFolder, compare(tracks, expected, lengthsFor(pool, disc, expected), true), null, BY_SEARCH);
+        if (expected == null) return skip(a, artistOrFolder, NO_INFO).withGroup(group);
+        if (expected == WHICH) return skip(a, artistOrFolder, WHICH_DISC).withGroup(group);
+        return new Result(a, artistOrFolder, compare(tracks, expected, lengthsFor(pool, disc, expected), true), null, BY_SEARCH, group);
     }
 
     /**
@@ -319,6 +336,24 @@ public final class RipCheck {
     }
 
     static final int WHICH = -2;
+
+    static String groupId(JSONObject release) {
+        JSONObject g = release.optJSONObject("release-group");
+        String id = g == null ? "" : g.optString("id");
+        return id.isEmpty() ? null : id;
+    }
+
+    /** The release group every matching edition belongs to, or null when they differ or none says. */
+    static String sharedGroup(List<JSONObject> pool) {
+        String group = null;
+        for (JSONObject r : pool) {
+            String g = groupId(r);
+            if (g == null) return null;
+            if (group == null) group = g;
+            else if (!group.equals(g)) return null;
+        }
+        return group;
+    }
 
     /** Matching releases (title, artist, score), CD editions only when there are any. */
     static List<JSONObject> candidates(JSONArray releases, String artist, String album) {

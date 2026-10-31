@@ -29,6 +29,8 @@ import android.widget.TextView;
 import com.malbers.fixmyrips.core.Album;
 import com.malbers.fixmyrips.core.FixPlanner;
 import com.malbers.fixmyrips.core.Fixer;
+import com.malbers.fixmyrips.core.InventoryServer;
+import com.malbers.fixmyrips.core.LibraryIndex;
 import com.malbers.fixmyrips.core.AlbumScanner;
 import com.malbers.fixmyrips.core.RipCheck;
 import com.malbers.fixmyrips.core.UpdateCheck;
@@ -37,6 +39,7 @@ import com.malbers.fixmyrips.ui.ItemAdapter;
 import com.malbers.fixmyrips.ui.Ui;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,7 +53,7 @@ import java.util.Locale;
  * confirm, fixing, report, undo history.
  */
 public class MainActivity extends Activity {
-    private enum Screen { ACCESS, BROWSE, CHECKING, RESULTS, ALBUM, CONFIRM, FIXING, REPORT, UNDO }
+    private enum Screen { ACCESS, BROWSE, CHECKING, RESULTS, ALBUM, CONFIRM, FIXING, REPORT, UNDO, INVENTORY }
 
     private static final int REQ_LEGACY = 1;
     private static final String CHANNEL = "https://www.youtube.com/@malbers";
@@ -105,6 +108,7 @@ public class MainActivity extends Activity {
 
     /** As {@link #frame}, with an optional view at the bottom left, opposite the buttons. */
     private void frameWithLeft(Screen s, String subtitle, View body, View left, View... buttons) {
+        if (s != Screen.INVENTORY) stopServer(); // the phone page only runs while its screen is showing
         screen = s;
         root.removeAllViews();
         LinearLayout header = Ui.row(this);
@@ -344,10 +348,11 @@ public class MainActivity extends Activity {
         String sub = dir == null ? "Choose where your music is" : dir.getPath();
         View update = updatePill();
         if (dir == null) {
-            frameWithLeft(Screen.BROWSE, sub, body, update);
+            frameWithLeft(Screen.BROWSE, sub, body, update, Ui.button(this, "Rip Inventory", v -> showInventory(() -> showBrowse(null))));
         } else {
             frameWithLeft(Screen.BROWSE, sub, body, update,
                     Ui.button(this, "Up", v -> goUp()),
+                    Ui.button(this, "Rip Inventory", v -> showInventory(() -> showBrowse(dir))),
                     Ui.button(this, "Scan this folder", true, v -> startScan(dir)));
         }
     }
@@ -449,6 +454,7 @@ public class MainActivity extends Activity {
             planned = all.size();
             runOnUiThread(() -> bar.setMax(Math.max(1, all.size())));
             RipCheck check = new RipCheck(new UrlHttp(BuildConfig.USER_AGENT));
+            List<LibraryIndex.Entry> listed = new ArrayList<>();
             for (int i = 0; i < all.size() && !cancelled; i++) {
                 Album a = all.get(i);
                 int n = i;
@@ -459,11 +465,21 @@ public class MainActivity extends Activity {
                 });
                 RipCheck.Result r = check.check(a);
                 Row row = new Row(a, r, FixPlanner.plan(a, r));
+                listed.add(LibraryIndex.entry(a, r, row.plan));
                 runOnUiThread(() -> {
                     rows.add(row);
                     bar.setProgress(rows.size());
                     if (row.plan.fixable() || !row.plan.reRip.isEmpty()) found.add(rowItem(row));
                 });
+            }
+            // A finished scan replaces this folder's part of the library list; a stopped one is not saved,
+            // since it would drop the albums it never reached.
+            if (!cancelled) {
+                try {
+                    LibraryIndex.load(indexFile()).merge(dir, listed, System.currentTimeMillis()).save(indexFile());
+                } catch (Exception ignored) {
+                    // Rip Inventory says when there is no list; the check results stand on their own.
+                }
             }
             runOnUiThread(() -> {
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -968,6 +984,9 @@ public class MainActivity extends Activity {
             case REPORT:
                 showResults();
                 return;
+            case INVENTORY:
+                leaveInventory();
+                return;
             case CHECKING:
             case FIXING:
                 return; // Stop is explicit; back must not abandon a run half-way.
@@ -975,5 +994,95 @@ public class MainActivity extends Activity {
                 break;
         }
         super.onBackPressed();
+    }
+
+    @Override
+    protected void onDestroy() {
+        stopServer();
+        super.onDestroy();
+    }
+
+    // ---------- Rip Inventory: serves the phone page while this screen is open ----------
+
+    private InventoryServer server;
+    private Runnable inventoryReturn;
+
+    private static File indexFile() {
+        return new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "FixMyRips/library.json");
+    }
+
+    private void showInventory(Runnable back) {
+        inventoryReturn = back;
+        stopServer();
+        LibraryIndex lib = LibraryIndex.load(indexFile());
+        server = new InventoryServer(new UrlHttp(BuildConfig.USER_AGENT), () -> LibraryIndex.load(indexFile()), this::asset);
+        LinearLayout body = card();
+        int p = Ui.dp(this, 18);
+        body.setPadding(p, p, p, p);
+        String ip = lanAddress();
+        int port;
+        try {
+            port = server.start(8765);
+        } catch (IOException e) {
+            server = null;
+            body.addView(Ui.text(this, "Couldn't start Rip Inventory: " + e.getMessage(), 17, Ui.BAD, true));
+            frame(Screen.INVENTORY, "Rip Inventory", body, Ui.button(this, "Back", true, v -> leaveInventory()));
+            return;
+        }
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        body.addView(Ui.text(this, "On your phone, open the browser (Safari or Chrome) and go to:", 16, Ui.SUB, false));
+        TextView url = Ui.text(this, ip == null ? "(no network found)" : "http://" + ip + ":" + port, 30, Ui.ACCENT, true);
+        url.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
+        body.addView(url);
+        String libLine = lib.entries.isEmpty()
+                ? "No library list yet. Go Back, open your music folder (for example EverSoloMusic) and tap Scan this folder; the list is saved when the scan finishes."
+                : "Library list: " + lib.entries.size() + " albums, from " + new SimpleDateFormat("MMM d, HH:mm", Locale.US).format(new Date(lib.updated))
+                    + ". Rescan a folder to bring it up to date.";
+        TextView t = Ui.text(this, "Snap a CD's barcode or type a name, and it tells you if that CD is ripped, ripped with problems, "
+                + "a different edition, or not ripped yet.\n\n" + libLine + "\n\n"
+                + "Keep this screen open while you scan. It only answers on your home network, and only reads.", 15, Ui.TEXT, false);
+        body.addView(t);
+        frame(Screen.INVENTORY, "Rip Inventory · keep this screen open", body, Ui.button(this, "Stop", true, v -> leaveInventory()));
+    }
+
+    private void leaveInventory() {
+        stopServer();
+        Runnable back = inventoryReturn;
+        inventoryReturn = null;
+        if (back != null) back.run();
+        else showBrowse(browseDir);
+    }
+
+    private void stopServer() {
+        if (server != null) {
+            server.stop();
+            server = null;
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+    }
+
+    private byte[] asset(String name) throws IOException {
+        try (java.io.InputStream in = getAssets().open(name)) {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            return out.toByteArray();
+        }
+    }
+
+    /** The unit's IPv4 address on the home network (Ethernet or Wi-Fi), or null. */
+    private static String lanAddress() {
+        try {
+            for (java.net.NetworkInterface ni : java.util.Collections.list(java.net.NetworkInterface.getNetworkInterfaces())) {
+                if (!ni.isUp() || ni.isLoopback()) continue;
+                for (java.net.InetAddress a : java.util.Collections.list(ni.getInetAddresses())) {
+                    if (a instanceof java.net.Inet4Address && a.isSiteLocalAddress()) return a.getHostAddress();
+                }
+            }
+        } catch (Exception ignored) {
+            // fall through
+        }
+        return null;
     }
 }
