@@ -550,7 +550,7 @@ public class MainActivity extends Activity {
 
         String note = (cancelled ? "Stopped after " + rows.size() + " of " + planned + " albums. " : "")
                 + (shown.isEmpty() ? "Nothing to fix and nothing to re-rip in the albums checked."
-                    : "Tap an album to see exactly what would change. Nothing has been changed yet.");
+                    : "Tap an album to see exactly what would change. Nothing changes until you tap Fix.");
         TextView n = Ui.text(this, note, 15, Ui.TEXT, false);
         n.setPadding(Ui.dp(this, 4), Ui.dp(this, 12), 0, Ui.dp(this, 8));
         body.addView(n);
@@ -626,7 +626,7 @@ public class MainActivity extends Activity {
                 + "Only the tags change. Each file's music is fingerprinted before and after; if anything else changed, "
                 + "the file is put back straight away.\n\n"
                 + "Every fix is saved in Undo history, so you can put the old tags back later. "
-                + "(Undo history lives in this app: uninstalling it removes the history, not the fixes.)", 15, Ui.SUB, false);
+                + "(Undo records are kept in Download/FixMyRips/undo, so they survive reinstalling the app.)", 15, Ui.SUB, false);
         t.setPadding(0, Ui.dp(this, 10), 0, 0);
         body.addView(t);
         frame(Screen.CONFIRM, scanRoot.getPath(), body,
@@ -661,7 +661,7 @@ public class MainActivity extends Activity {
         });
         frame(Screen.FIXING, "Fixing tags", body, stop);
 
-        File undoDir = new File(getFilesDir(), "undo");
+        File undoDir = undoDir();
         new Thread(() -> {
             List<Row> fixedRows = new ArrayList<>();
             List<String> failed = new ArrayList<>();
@@ -720,7 +720,7 @@ public class MainActivity extends Activity {
     // ---------- undo history ----------
 
     private void showUndo() {
-        File[] recs = new File(getFilesDir(), "undo").listFiles(f -> f.getName().endsWith(".json"));
+        File[] recs = undoDir().listFiles(f -> f.getName().endsWith(".json"));
         ItemAdapter adapter = new ItemAdapter(this);
         if (recs != null) {
             Arrays.sort(recs, (a, b) -> b.getName().compareTo(a.getName()));
@@ -784,6 +784,14 @@ public class MainActivity extends Activity {
             }, "undo").start();
         });
         frame(Screen.CONFIRM, "Undo", body, Ui.button(this, "Cancel", v -> showUndo()), go);
+    }
+
+    /**
+     * Undo records live in the shared Download folder, not app storage: an uninstall or a clean reinstall
+     * wipes app storage, and with it the only way back (lost that way on the 2026-10-30 device test).
+     */
+    private static File undoDir() {
+        return new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "FixMyRips/undo");
     }
 
     /** "Commodores · Anthology- The Best of the Commodores": artist (tags, else parent folder) and album folder. */
