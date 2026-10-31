@@ -1,0 +1,11 @@
+FixMyRips
+Copyright 2026 Michael Albers (@malbers)
+
+This product includes FixMyRips, created by Michael Albers.
+https://www.youtube.com/@malbers
+
+Album, release and barcode data are fetched at run time from MusicBrainz
+(https://musicbrainz.org), run by the MetaBrainz Foundation.
+
+The phone page bundles @zxing/library 0.21.3 (https://github.com/zxing-js/library),
+unmodified. See THIRD_PARTY.md and app/src/main/assets/zxing-LICENSE.txt.
