@@ -153,8 +153,15 @@ When a new version is out, tap **Update available** at the bottom left of the fo
 
 You can also download any version from the [releases page](https://github.com/malbers/fixmyrips/releases) on your computer and use Option A or B.
 
-<!-- TODO before going public: run scripts/new-signing-key.ps1, build the first signed release, then add the
-     "Is this file really from me?" section with the SHA-256 certificate fingerprint, as in the AddMyCoverArt README. -->
+### Is this file really from me?
+
+Every official release is signed with the same key. If you want to check a copy you got somewhere else, its SHA-256 certificate fingerprint should be:
+
+```
+b65d2e5f181f31fc839b91d5c37004aea3ba742a3e93aab2696430492feb159b
+```
+
+An APK with a different signer did not come from here.
 
 ## Tested on
 
