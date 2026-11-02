@@ -535,9 +535,14 @@ public class MainActivity extends Activity {
         List<String> parts = new ArrayList<>();
         if (r.plan.fixable()) parts.add(describeChanges(r.plan));
         if (!r.plan.reRip.isEmpty()) parts.add("re-rip: " + String.join(" · ", r.plan.reRip));
+        boolean copy = r.hint != null && r.hint.secondCopy;
         String status;
         int color;
-        if (r.plan.fixable()) {
+        if (copy && !r.plan.fixable() && r.plan.reRip.isEmpty()) {
+            // Two rips of one disc: say so on the row, the album screen explains which other folder.
+            status = "2nd copy";
+            color = Ui.ACCENT;
+        } else if (r.plan.fixable()) {
             status = "Fixable";
             color = Ui.ACCENT;
         } else if (!r.plan.reRip.isEmpty()) {
@@ -550,6 +555,7 @@ public class MainActivity extends Activity {
             status = "OK";
             color = Ui.GOOD;
         }
+        if (copy && !status.equals("2nd copy")) parts.add("2nd copy of this album");
         String sub = (artist != null ? artist + " · " : "") + (parts.isEmpty() ? "" : String.join(" · ", parts));
         return new ItemAdapter.Item(r.album.dir.getName(), sub, status, color, null, false, r);
     }

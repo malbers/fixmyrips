@@ -131,6 +131,8 @@ public class TimestampDiscsTest {
         assertNull(hints.get(datedDir).disc);
         assertTrue(hints.get(datedDir).note, hints.get(datedDir).note.contains("second copy"));
         assertTrue(hints.get(dir).note.contains("second copy"));
+        assertTrue(hints.get(datedDir).secondCopy);
+        assertTrue(hints.get(dir).secondCopy);
     }
 
     @Test
@@ -152,6 +154,7 @@ public class TimestampDiscsTest {
         assertNull(hints.get(albums.get(0).dir));
         assertNull(hints.get(albums.get(1).dir).disc);
         assertTrue(hints.get(albums.get(1).dir).note.contains("couldn't confirm"));
+        assertTrue(!hints.get(albums.get(1).dir).secondCopy);
     }
 
     @Test

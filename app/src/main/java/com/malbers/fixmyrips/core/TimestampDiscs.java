@@ -38,11 +38,18 @@ public final class TimestampDiscs {
     public static final class Hint {
         public final Integer disc, total;
         public final String note;
+        /** True when this folder and its dated sibling are two rips of the same disc. */
+        public final boolean secondCopy;
 
         Hint(Integer disc, Integer total, String note) {
+            this(disc, total, note, false);
+        }
+
+        Hint(Integer disc, Integer total, String note, boolean secondCopy) {
             this.disc = disc;
             this.total = total;
             this.note = note;
+            this.secondCopy = secondCopy;
         }
     }
 
@@ -153,7 +160,7 @@ public final class TimestampDiscs {
             } else {
                 note = "the CD ripper gave this folder a date instead of a disc number, and MusicBrainz couldn't confirm which disc it is: disc number left alone";
             }
-            out.put(set.get(k).dir, new Hint(null, null, note));
+            out.put(set.get(k).dir, new Hint(null, null, note, duplicate));
         }
         return out;
     }
