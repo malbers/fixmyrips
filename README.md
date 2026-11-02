@@ -52,6 +52,8 @@ Stand at your shelf with your phone. No app to install, just its browser. It eve
 - **A missing disc number and disc total** on multi-disc sets, taken from "Disc 1", "Disc 2" folder names, and only when the sibling discs run 1 to N.
 - **Second discs in a dated folder.** When an album's folder name is already taken, the Eversolo CD Ripper puts the next disc in a folder like `Album-20250824181140` instead of "Disc 2". FixMyRips matches each folder's track titles against the release on MusicBrainz and adds the right disc numbers. The folder names stay as they are. A dated folder that turns out to be a second copy of the same disc is pointed out instead, and left alone.
 
+- **One artist spelled two ways** ("Beatles" and "The Beatles"). You choose the spelling; only artist tags that exactly match the other spelling change, so guest credits ("feat.") stay as they are. FLAC only, for now.
+
 Every rule skips when it can't be sure, and says why. **A wrong tag is worse than a missing one.** Works on FLAC and MP3.
 
 ## Scan a CD with your phone: is it ripped?
@@ -189,6 +191,8 @@ Newest first. Every version is also on the [releases page](https://github.com/ma
 - **New: Undo all.** A Fix all run can now be undone in one tap from Undo history, instead of album by album. (Fixes made with older versions still undo one album at a time.) Undo history also has a search box and a Newest / A-Z sort, so one album is easy to find in a long list.
 - **New: folder dates.** The folder browser shows each folder's date, so two copies of the same album are easy to tell apart.
 - **Better second-copy spotting.** When a first rip lost a track and the CD Ripper left it as an untagged `Track-12.flac`, a later re-rip of the same disc is now recognised as a second copy, not left as "couldn't confirm". Second copies are also labelled **2nd copy** in the results list, so they don't hide behind "OK".
+- **New: artist names spelled two ways.** One album says "Beatles", the rest "The Beatles", so the Eversolo lists two artists. FixMyRips spots it, tells you which spelling most of your albums use, and lets you pick the one to keep. It never picks on its own. FLAC for now; MP3 albums are listed but not changed yet.
+- Undo history now says when an album's folder was moved or renamed after a fix, instead of failing when you tap Undo.
 - The buttons moved to the bottom left, out of the way of the Eversolo's on-screen navigation.
 
 **1.0.1** (31 October 2026)
