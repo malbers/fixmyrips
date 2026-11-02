@@ -891,7 +891,8 @@ public class MainActivity extends Activity {
                     File album = new File(d[0]);
                     String artist = album.getParentFile() != null ? album.getParentFile().getName() + " · " : "";
                     String sub = when.format(new Date(Long.parseLong(d[1]))) + " · " + d[2] + " tag changes";
-                    all.add(new ItemAdapter.Item((group.size() > 1 ? "   " : "") + artist + album.getName(), sub, "Undo", Ui.ACCENT, null, false, rec));
+                    ItemAdapter.Item row = new ItemAdapter.Item(artist + album.getName(), sub, "Undo", Ui.ACCENT, null, false, rec);
+                    all.add(group.size() > 1 ? row.withIndent() : row);
                     albums.add(new ItemAdapter.Item(artist + album.getName(), sub, "Undo", Ui.ACCENT, null, false, rec));
                 }
             }

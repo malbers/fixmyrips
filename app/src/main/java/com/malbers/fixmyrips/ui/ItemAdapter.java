@@ -39,6 +39,14 @@ public final class ItemAdapter extends BaseAdapter {
             return this;
         }
 
+        /** Shift the whole row right, to show it belongs to the row above (albums under their Fix all run). */
+        public boolean indent;
+
+        public Item withIndent() {
+            indent = true;
+            return this;
+        }
+
         public Item(String title, String sub, String status, int statusColor, Bitmap thumb, boolean showThumb, Object tag) {
             this.title = title;
             this.sub = sub;
@@ -87,6 +95,8 @@ public final class ItemAdapter extends BaseAdapter {
         if (it.icon != 0) h.icon.setImageResource(it.icon);
         if (it.thumb != null) h.thumb.setImageBitmap(it.thumb);
         else h.thumb.setImageResource(com.malbers.fixmyrips.R.drawable.ic_disc_placeholder);
+        int pad = Ui.dp(c, 10);
+        h.root.setPadding(pad + (it.indent ? Ui.dp(c, 24) : 0), Ui.dp(c, 8), pad, Ui.dp(c, 8));
         h.title.setText(it.title);
         h.sub.setText(it.sub == null ? "" : it.sub);
         h.sub.setVisibility(it.sub == null ? View.GONE : View.VISIBLE);
