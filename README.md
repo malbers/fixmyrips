@@ -62,6 +62,7 @@ This one is for you. **Rip Inventory** answers it from the shelf, with the phone
 
 1. On the Eversolo, open FixMyRips and tap **Rip Inventory**. It shows a web address for your home network. Keep that screen open while you scan.
 
+   <!-- TODO(1.0.2): retake from the current build; the screen's wording has changed since this shot. -->
    ![Rip Inventory on the Eversolo, showing the address to open on your phone](docs/screenshots/inventory-1-eversolo.jpg)
 
 2. Open that address in your phone's browser (Safari or Chrome). No app to install on the phone.
@@ -94,7 +95,7 @@ Once a day it checks for a new version. When one is out, an **Update available**
 - It never changes the music. Only the tags (the labels stored inside each file) change. Each file's audio is fingerprinted before and after a fix; if anything other than the tags changed, the file is put back straight away.
 - It never moves, renames or deletes a file or folder.
 - It never changes anything until you tap **Fix**, and it shows you every change first.
-- Every fix can be undone. **Undo history** puts the old tags back. The undo records are kept in `Download/FixMyRips/undo`, so they survive reinstalling the app. Don't delete that folder.
+- Every fix can be undone. **Undo history** puts the old tags back, one album at a time or a whole **Fix all** run with **Undo all**. The undo records are kept in `Download/FixMyRips/undo`, so they survive reinstalling the app. Don't delete that folder.
 - The only other files it writes go to `Download/FixMyRips` and the Download folder: the library list, a saved report, or a downloaded update.
 - No Google Play, no Google services, no accounts, no analytics.
 
@@ -138,7 +139,14 @@ Use this if the upload page doesn't work for you, or if you already copy music t
    - **Mac:** in Finder, choose **Go > Connect to Server** (or press Cmd+K), type the `smb://` address and click Connect. If it asks how to connect, choose **Guest**.
 3. **Copy the APK** into any folder on the Eversolo, for example the `Download` folder on its SSD. Drag it in like any other file.
 4. **Install it from the Eversolo.** On the Eversolo, open the built-in **Files** app, go to the folder you used, tap the FixMyRips APK and tap **Install**. (If you already have an older version, it says it will install an update instead. That's fine: your undo history is kept.)
+
+   <!-- TODO(1.0.2): screenshot of the Install prompt (Michael). -->
+
 5. **Tap Open** to start it now, or find it later in the **Apps** tab.
+
+   <!-- TODO(1.0.2): screenshot of the Apps tab with FixMyRips (Michael's homescreen shot). -->
+
+   <!-- Option A step 4 ("Find it on the Eversolo") can reuse the same Apps tab shot. -->
 
 ### First launch: give it access to your music
 
@@ -158,7 +166,7 @@ The first time you open it, the app asks for permission to read your music folde
 
 ### Updating later
 
-When a new version is out, tap **Update available** at the bottom left of the folder screen. It downloads the new version to the Eversolo's Download folder. Then open the **Files** app, choose **Storage** on the left (the Eversolo's own storage, not the SSD), open **Download**, tap the new FixMyRips APK and tap **Install**. It installs over the old version; your undo history is kept.
+When a new version is out, tap **Update available** at the bottom left of the folder screen, next to **Rip Inventory**. It downloads the new version to the Eversolo's Download folder. Then open the **Files** app, choose **Storage** on the left (the Eversolo's own storage, not the SSD), open **Download**, tap the new FixMyRips APK and tap **Install**. It installs over the old version; your undo history is kept.
 
 You can also download any version from the [releases page](https://github.com/malbers/fixmyrips/releases) on your computer and use Option A or B.
 
@@ -175,6 +183,13 @@ An APK with a different signer did not come from here.
 ## What's new
 
 Newest first. Every version is also on the [releases page](https://github.com/malbers/fixmyrips/releases).
+
+<!-- TODO(1.0.2): set the date on release. -->
+**1.0.2** (not released yet)
+- **New: Undo all.** A Fix all run can now be undone in one tap from Undo history, instead of album by album. (Fixes made with older versions still undo one album at a time.)
+- **New: folder dates.** The folder browser shows each folder's date, so two copies of the same album are easy to tell apart.
+- **Better second-copy spotting.** When a first rip lost a track and the CD Ripper left it as an untagged `Track-12.flac`, a later re-rip of the same disc is now recognised as a second copy, not left as "couldn't confirm".
+- The buttons moved to the bottom left, out of the way of the Eversolo's on-screen navigation.
 
 **1.0.1** (31 October 2026)
 - **New: second discs in a dated folder.** The CD Ripper sometimes names disc 2 `Album-20250824181140` instead of "Disc 2", so players show the set as two unrelated albums. FixMyRips now works out which disc each folder is from its track titles on MusicBrainz and adds the disc numbers, without renaming anything. On my own library it sorted out Mellon Collie and a Three Dog Night set, and flagged a second copy of another album instead of calling it disc 2.
