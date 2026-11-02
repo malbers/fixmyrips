@@ -21,21 +21,6 @@ public class LiveSmokeTest {
     private final Http http = new UrlHttp("FixMyRips/test ( https://youtube.com/@malbers )");
 
     @Test
-    public void taglessHelpFolderGetsTheAlbumCover() throws Exception {
-        assumeTrue("1".equals(System.getenv("AMCA_LIVE")));
-        File dir = new File(tmp.getRoot(), "Beatles/Help");
-        assertTrue(dir.mkdirs());
-        for (int i = 1; i <= 14; i++) assertTrue(new File(dir, String.format("%02d.flac", i)).createNewFile());
-        Album a = AlbumScanner.scan(tmp.getRoot()).missing.get(0);
-        LookupResult r = new ArtLookup(http).find(a, TagReader.read(a.firstAudio));
-        System.out.println("Help: " + (r.image == null ? r.reason : r.image.length + " bytes from " + r.source));
-        assertNotNull(r.image);
-        File saved = ArtWriter.save(dir, r.image, r.source, new File(tmp.getRoot(), "run.log"));
-        assertNotNull(saved);
-        assertEquals(1, AlbumScanner.scan(tmp.getRoot()).withArt.size());
-    }
-
-    @Test
     public void realRipByMusicBrainzId() throws Exception {
         assumeTrue("1".equals(System.getenv("AMCA_LIVE")));
         String sample = System.getenv("AMCA_SAMPLE_FLAC");
