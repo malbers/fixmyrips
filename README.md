@@ -186,7 +186,7 @@ Newest first. Every version is also on the [releases page](https://github.com/ma
 
 <!-- TODO(1.0.2): set the date on release. -->
 **1.0.2** (not released yet)
-- **New: Undo all.** A Fix all run can now be undone in one tap from Undo history, instead of album by album. (Fixes made with older versions still undo one album at a time.)
+- **New: Undo all.** A Fix all run can now be undone in one tap from Undo history, instead of album by album. (Fixes made with older versions still undo one album at a time.) Undo history also has a search box and a Newest / A-Z sort, so one album is easy to find in a long list.
 - **New: folder dates.** The folder browser shows each folder's date, so two copies of the same album are easy to tell apart.
 - **Better second-copy spotting.** When a first rip lost a track and the CD Ripper left it as an untagged `Track-12.flac`, a later re-rip of the same disc is now recognised as a second copy, not left as "couldn't confirm". Second copies are also labelled **2nd copy** in the results list, so they don't hide behind "OK".
 - The buttons moved to the bottom left, out of the way of the Eversolo's on-screen navigation.
