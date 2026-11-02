@@ -612,12 +612,15 @@ public class MainActivity extends Activity {
             save.setText(f != null ? "Saved: Download/" + f.getName() : "Couldn't save the report");
             save.setEnabled(f == null);
         });
+        // Undo history and Save report sit bottom left, clear of the device nav rail on the right.
+        LinearLayout left = Ui.row(this);
+        left.addView(Ui.button(this, "Undo history", v -> showUndo()));
+        left.addView(save, Ui.wrap(Ui.dp(this, 10)));
         List<View> buttons = new ArrayList<>();
-        buttons.add(Ui.button(this, "Undo history", v -> showUndo()));
         buttons.add(Ui.button(this, "Choose another folder", v -> showBrowse(scanRoot)));
         List<Row> todo = fixable();
         if (!todo.isEmpty()) buttons.add(Ui.button(this, "Fix all (" + todo.size() + ")", true, v -> confirmFix(todo)));
-        frameWithLeft(Screen.RESULTS, scanRoot.getPath(), body, save, buttons.toArray(new View[0]));
+        frameWithLeft(Screen.RESULTS, scanRoot.getPath(), body, left, buttons.toArray(new View[0]));
     }
 
     // ---------- one album: the before → after preview ----------
@@ -828,7 +831,7 @@ public class MainActivity extends Activity {
         TextView t = Ui.text(this, b.toString(), 15, Ui.TEXT, false);
         t.setPadding(0, Ui.dp(this, 10), 0, 0);
         body.addView(t);
-        frame(Screen.REPORT, scanRoot.getPath(), body,
+        frameWithLeft(Screen.REPORT, scanRoot.getPath(), body,
                 Ui.button(this, "Undo history", v -> showUndo()),
                 Ui.button(this, "Back to results", true, v -> showResults()));
     }
@@ -914,9 +917,8 @@ public class MainActivity extends Activity {
         t.setPadding(0, Ui.dp(this, 10), 0, 0);
         body.addView(t);
         List<View> buttons = new ArrayList<>();
-        buttons.add(Ui.button(this, "Undo history", v -> showUndo()));
         if (scanRoot != null && !rows.isEmpty()) buttons.add(Ui.button(this, "Back to results", true, v -> showResults()));
-        frame(Screen.REPORT, "Undo", body, buttons.toArray(new View[0]));
+        frameWithLeft(Screen.REPORT, "Undo", body, Ui.button(this, "Undo history", v -> showUndo()), buttons.toArray(new View[0]));
     }
 
     /**
