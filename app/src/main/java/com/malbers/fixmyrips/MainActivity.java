@@ -349,13 +349,16 @@ public class MainActivity extends Activity {
         });
         body.addView(l, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
         String sub = dir == null ? "Choose where your music is" : dir.getPath();
+        // Rip Inventory sits bottom left, away from the device nav rail on the right; the update pill follows it.
+        LinearLayout left = Ui.row(this);
+        left.addView(Ui.button(this, "Rip Inventory", v -> showInventory(() -> showBrowse(dir))));
         View update = updatePill();
+        if (update != null) left.addView(update, Ui.wrap(Ui.dp(this, 10)));
         if (dir == null) {
-            frameWithLeft(Screen.BROWSE, sub, body, update, Ui.button(this, "Rip Inventory", v -> showInventory(() -> showBrowse(null))));
+            frameWithLeft(Screen.BROWSE, sub, body, left);
         } else {
-            frameWithLeft(Screen.BROWSE, sub, body, update,
+            frameWithLeft(Screen.BROWSE, sub, body, left,
                     Ui.button(this, "Up", v -> goUp()),
-                    Ui.button(this, "Rip Inventory", v -> showInventory(() -> showBrowse(dir))),
                     Ui.button(this, "Scan this folder", true, v -> startScan(dir)));
         }
     }
