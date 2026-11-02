@@ -148,6 +148,7 @@ public class FixPlannerTest {
         }
         assertTrue(FixPlanner.plan(a, ok(a, RipCheck.BY_ID)).changes.isEmpty()); // nothing left to fix
         assertEquals(a.dir.getPath(), Fixer.describe(rec)[0]);
+        assertEquals("1000", Fixer.describe(rec)[3]); // fixed on its own: its run is its own time
 
         Fixer.undo(rec);
 
@@ -197,5 +198,18 @@ public class FixPlannerTest {
         assertTrue(rec.exists());
         assertEquals("0", FlacTags.get(FlacTags.read(new File(dir, "01.Song 1.flac")).comments, "TRACKNUMBER"));
         assertEquals("re-ripped", FlacTags.get(FlacTags.read(re).comments, "TITLE"));
+    }
+
+    @Test
+    public void undoRecordsCarryTheirRunAndOldRecordsStandAlone() throws IOException {
+        File undo = tmp.newFolder("undo-runs");
+        File old = new File(undo, "7-old.json");
+        Files.write(old.toPath(), "{\"album\":\"/x/Album\",\"time\":7,\"changes\":[\"a\"],\"files\":[]}".getBytes("UTF-8"));
+        assertEquals("7", Fixer.describe(old)[3]); // written before runs existed: a run of its own
+
+        Album a = TestFlac.album(tmp.newFolder("Run"), 3, 0);
+        File rec = Fixer.fix(FixPlanner.plan(a, ok(a, RipCheck.BY_ID)), undo, 20L, 10L);
+        assertEquals("20", Fixer.describe(rec)[1]);
+        assertEquals("10", Fixer.describe(rec)[3]);
     }
 }

@@ -29,6 +29,11 @@ public final class Fixer {
 
     /** Fixes the album and returns its undo record. On any failure, files already changed are put back. */
     public static File fix(FixPlanner.Plan plan, File undoDir, long now) throws IOException {
+        return fix(plan, undoDir, now, now);
+    }
+
+    /** As {@link #fix(FixPlanner.Plan, File, long)}; {@code run} ties together every album fixed in one go, for "Undo all". */
+    public static File fix(FixPlanner.Plan plan, File undoDir, long now, long run) throws IOException {
         List<File> files = plan.files();
         JSONObject rec = new JSONObject();
         JSONArray entries = new JSONArray();
@@ -36,6 +41,7 @@ public final class Fixer {
         try {
             rec.put("album", plan.album.dir.getPath());
             rec.put("time", now);
+            rec.put("run", run);
             JSONArray changes = new JSONArray();
             for (FixPlanner.Change c : plan.changes) changes.put(c.toString());
             rec.put("changes", changes);
@@ -106,11 +112,16 @@ public final class Fixer {
         record.delete();
     }
 
-    /** Album folder and time of an undo record, for the list in the app. */
+    /**
+     * Album folder, time, number of changes and run of an undo record, for the list in the app. Records
+     * written before runs existed get their own time as their run, so each stays on its own.
+     */
     public static String[] describe(File record) {
         try {
             JSONObject rec = new JSONObject(new String(Files.readAllBytes(record.toPath()), StandardCharsets.UTF_8));
-            return new String[] {rec.getString("album"), String.valueOf(rec.getLong("time")), String.valueOf(rec.getJSONArray("changes").length())};
+            long time = rec.getLong("time");
+            return new String[] {rec.getString("album"), String.valueOf(time), String.valueOf(rec.getJSONArray("changes").length()),
+                    String.valueOf(rec.optLong("run", time))};
         } catch (IOException | JSONException e) {
             return null;
         }

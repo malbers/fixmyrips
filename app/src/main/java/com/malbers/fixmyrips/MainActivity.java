@@ -47,9 +47,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Screens, each built fresh so nothing carries over: access, browse, checking, results, one album,
@@ -787,6 +790,7 @@ public class MainActivity extends Activity {
         frame(Screen.FIXING, "Fixing tags", body, stop);
 
         File undoDir = undoDir();
+        long run = System.currentTimeMillis(); // every album fixed here can be undone together
         new Thread(() -> {
             List<Row> fixedRows = new ArrayList<>();
             List<String> failed = new ArrayList<>();
@@ -796,7 +800,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> count.setText((n + 1) + " of " + todo.size() + " · " + r.album.dir.getName()));
                 ItemAdapter.Item item;
                 try {
-                    Fixer.fix(r.plan, undoDir, System.currentTimeMillis());
+                    Fixer.fix(r.plan, undoDir, System.currentTimeMillis(), run);
                     fixedRows.add(r);
                     item = new ItemAdapter.Item(r.album.dir.getName(), describeChanges(r.plan), "Fixed", Ui.GOOD, null, false, null);
                 } catch (Exception e) {
@@ -850,13 +854,32 @@ public class MainActivity extends Activity {
         if (recs != null) {
             Arrays.sort(recs, (a, b) -> b.getName().compareTo(a.getName()));
             SimpleDateFormat when = new SimpleDateFormat("MMM d, HH:mm", Locale.US);
+            // Group by run, newest first, so a Fix all run can be undone in one go.
+            Map<String, List<File>> runs = new java.util.LinkedHashMap<>();
+            Map<File, String[]> info = new HashMap<>();
             for (File rec : recs) {
                 String[] d = Fixer.describe(rec);
                 if (d == null) continue;
-                File album = new File(d[0]);
-                String artist = album.getParentFile() != null ? album.getParentFile().getName() + " · " : "";
-                adapter.add(new ItemAdapter.Item(artist + album.getName(), when.format(new Date(Long.parseLong(d[1]))) + " · " + d[2] + " tag changes",
-                        "Undo", Ui.ACCENT, null, false, rec));
+                info.put(rec, d);
+                runs.computeIfAbsent(d[3], k -> new ArrayList<>()).add(rec);
+            }
+            for (Map.Entry<String, List<File>> run : runs.entrySet()) {
+                List<File> group = run.getValue();
+                if (group.size() > 1) {
+                    int changes = 0;
+                    for (File rec : group) changes += Integer.parseInt(info.get(rec)[2]);
+                    adapter.add(new ItemAdapter.Item("Fix all · " + group.size() + " albums",
+                            when.format(new Date(Long.parseLong(run.getKey()))) + " · " + changes + " tag changes",
+                            "Undo all", Ui.ACCENT, null, false, new UndoRun(group)));
+                }
+                for (File rec : group) {
+                    String[] d = info.get(rec);
+                    File album = new File(d[0]);
+                    String artist = album.getParentFile() != null ? album.getParentFile().getName() + " · " : "";
+                    adapter.add(new ItemAdapter.Item((group.size() > 1 ? "   " : "") + artist + album.getName(),
+                            when.format(new Date(Long.parseLong(d[1]))) + " · " + d[2] + " tag changes",
+                            "Undo", Ui.ACCENT, null, false, rec));
+                }
             }
         }
         if (adapter.getCount() == 0) adapter.add(new ItemAdapter.Item("Nothing to undo", "Fixes you make show up here.", null, Ui.SUB, null, false, null));
@@ -864,7 +887,8 @@ public class MainActivity extends Activity {
         ListView l = list(adapter);
         l.setOnItemClickListener((parent, v, pos, id) -> {
             Object tag = adapter.getItem(pos).tag;
-            if (tag instanceof File) confirmUndo((File) tag, adapter.getItem(pos).title);
+            if (tag instanceof File) confirmUndo((File) tag, adapter.getItem(pos).title.trim());
+            else if (tag instanceof UndoRun) confirmUndoAll(((UndoRun) tag).records);
         });
         body.addView(l, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
         frame(Screen.UNDO, "Undo history · newest first", body,
@@ -909,6 +933,73 @@ public class MainActivity extends Activity {
             }, "undo").start();
         });
         frame(Screen.CONFIRM, "Undo", body, Ui.button(this, "Cancel", v -> showUndo()), go);
+    }
+
+    /** The undo records of one Fix all run, as the tag of its "Undo all" row. */
+    private static final class UndoRun {
+        final List<File> records;
+        UndoRun(List<File> records) { this.records = records; }
+    }
+
+    private void confirmUndoAll(List<File> recs) {
+        LinearLayout body = card();
+        int p = Ui.dp(this, 18);
+        body.setPadding(p, p, p, p);
+        body.addView(Ui.text(this, "Put the old tags back on all " + recs.size() + " albums from this Fix all?", 20, Ui.TEXT, true));
+        TextView t = Ui.text(this, "Each album is undone the same way as on its own: every file gets back exactly the tags it had "
+                + "before the fix, and a file whose music has changed since is left alone. Albums that can't be undone keep "
+                + "their undo record, so you can try them again.", 15, Ui.SUB, false);
+        t.setPadding(0, Ui.dp(this, 10), 0, 0);
+        body.addView(t);
+        Button go = Ui.button(this, "Undo all", true, null);
+        go.setOnClickListener(v -> {
+            go.setEnabled(false);
+            new Thread(() -> {
+                int done = 0;
+                List<String> failed = new ArrayList<>();
+                Set<String> undonePaths = new HashSet<>();
+                for (int i = 0; i < recs.size(); i++) {
+                    File rec = recs.get(i);
+                    String[] d = Fixer.describe(rec);
+                    int n = i;
+                    runOnUiThread(() -> go.setText("Undoing " + (n + 1) + " of " + recs.size() + "…"));
+                    try {
+                        Fixer.undo(rec);
+                        done++;
+                        if (d != null) undonePaths.add(d[0]);
+                    } catch (Exception e) {
+                        failed.add((d != null ? new File(d[0]).getName() : rec.getName()) + ": " + e.getMessage());
+                    }
+                }
+                int ok = done;
+                runOnUiThread(() -> {
+                    for (Row r : rows) if (undonePaths.contains(r.album.dir.getPath())) r.plan = FixPlanner.plan(r.album, r.check, r.hint);
+                    showUndoneAll(ok, failed);
+                });
+            }, "undo-all").start();
+        });
+        frame(Screen.CONFIRM, "Undo all", body, Ui.button(this, "Cancel", v -> showUndo()), go);
+    }
+
+    private void showUndoneAll(int done, List<String> failed) {
+        LinearLayout body = card();
+        int p = Ui.dp(this, 18);
+        body.setPadding(p, p, p, p);
+        body.addView(Ui.text(this, "Undone: " + done + (done == 1 ? " album" : " albums"), 20, failed.isEmpty() ? Ui.GOOD : Ui.TEXT, true));
+        StringBuilder b = new StringBuilder("Every undone file has exactly the tags it had before the fix, and the music was checked unchanged.");
+        if (!failed.isEmpty()) {
+            b.append("\n\nNot undone (their undo records are kept, so you can try again from Undo history):");
+            for (String f : failed) b.append("\n• ").append(f);
+        }
+        b.append("\n\nNow update your library on the Eversolo so it shows the old tags again (it may start on its own).");
+        TextView t = Ui.text(this, b.toString(), 15, Ui.TEXT, false);
+        t.setPadding(0, Ui.dp(this, 10), 0, 0);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(t);
+        body.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+        List<View> buttons = new ArrayList<>();
+        if (scanRoot != null && !rows.isEmpty()) buttons.add(Ui.button(this, "Back to results", true, v -> showResults()));
+        frameWithLeft(Screen.REPORT, "Undo", body, Ui.button(this, "Undo history", v -> showUndo()), buttons.toArray(new View[0]));
     }
 
     /** After a successful undo: say plainly what happened, rather than dropping back to an empty list. */
