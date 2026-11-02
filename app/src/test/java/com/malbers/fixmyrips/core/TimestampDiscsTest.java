@@ -100,6 +100,49 @@ public class TimestampDiscsTest {
     }
 
     @Test
+    public void spotsASecondCopyWhenTheFirstRipLostATrackAsUntaggedTrackNN() throws IOException {
+        // RHCP I'm With You: the first rip's track 12 failed and was left as an untagged "Track-12.flac",
+        // which sorts last by name. Matched in name order, every later title shifted and the copy was missed.
+        String[] five = {"Monarchy of Roses", "Factory of Faith", "Ethiopia", "Look Around", "Police Station"};
+        File parent = tmp.newFolder("Red Hot Chili Peppers");
+        File dir = new File(parent, "I'm With You");
+        File first = null;
+        for (int i = 0; i < five.length; i++) {
+            if (i == 2) continue; // track 3 is the failed one
+            File f = TestFlac.write(new File(dir, String.format("%02d.%s.flac", i + 1, five[i])), 1024,
+                    "ALBUM=I'm With You", "ARTIST=Red Hot Chili Peppers", "TITLE=" + five[i], "TRACKNUMBER=" + (i + 1));
+            if (first == null) first = f;
+        }
+        TestFlac.write(new File(dir, "Track-03.flac"), 1024);
+        Album base = new Album(dir, 5, first, null, false);
+        File datedDir = new File(parent, "I'm With You-20250816220534");
+        File datedFirst = null;
+        for (int i = 0; i < five.length; i++) {
+            File f = TestFlac.write(new File(datedDir, String.format("%02d.%s-Red Hot Chili Peppers.flac", i + 1, five[i])), 1024,
+                    "ALBUM=I'm With You", "ARTIST=Red Hot Chili Peppers", "TITLE=" + five[i], "TRACKNUMBER=" + (i + 1));
+            if (datedFirst == null) datedFirst = f;
+        }
+        List<Album> albums = Arrays.asList(base, new Album(datedDir, 5, datedFirst, null, false));
+        ArtLookupTest.FakeHttp http = new ArtLookupTest.FakeHttp()
+                .on("release/?query", "{\"releases\":[{\"id\":\"rel1\",\"score\":100,\"title\":\"I'm With You\","
+                        + "\"artist-credit\":[{\"name\":\"Red Hot Chili Peppers\"}],\"media\":[{\"format\":\"CD\",\"track-count\":5}]}]}")
+                .on("release/rel1?inc=recordings", release(five));
+        Map<File, TimestampDiscs.Hint> hints = new TimestampDiscs(http).find(albums);
+        assertNull(hints.get(datedDir).disc);
+        assertTrue(hints.get(datedDir).note, hints.get(datedDir).note.contains("second copy"));
+        assertTrue(hints.get(dir).note.contains("second copy"));
+    }
+
+    @Test
+    public void ordersUntaggedTrackNNFilesByTheirNumber() {
+        List<TrackInfo> t = Arrays.asList(
+                new TrackInfo(1, null, null, null, null).withFile(new File("01.A.flac")),
+                new TrackInfo(3, null, null, null, null).withFile(new File("03.C.flac")),
+                TrackInfo.EMPTY.withFile(new File("Track-02.flac")));
+        assertEquals(Arrays.asList(Text.norm("01.A"), Text.norm("Track-02"), Text.norm("03.C")), TimestampDiscs.namesInTrackOrder(t));
+    }
+
+    @Test
     public void leavesTheDiscAloneWhenTheTitlesDontMatch() throws IOException {
         List<Album> albums = pair(DISC1, new String[] {"Something", "Else", "Entirely"});
         ArtLookupTest.FakeHttp http = new ArtLookupTest.FakeHttp()

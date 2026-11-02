@@ -94,13 +94,13 @@ public final class TimestampDiscs {
         for (Album a : set) {
             File[] files = audio(a.dir);
             if (files.length == 0) return out;
-            List<String> n = new ArrayList<>();
+            List<TrackInfo> tracks = new ArrayList<>();
             for (File f : files) {
                 TrackInfo t = TagReader.readTrack(f).withFile(f);
                 if (t.disc != null) return out; // already numbered: nothing to work out
-                n.add(Text.norm(t.name));
+                tracks.add(t);
             }
-            names.add(n);
+            names.add(namesInTrackOrder(tracks));
         }
 
         Album base = set.get(0);
@@ -199,6 +199,33 @@ public final class TimestampDiscs {
             if (!title.isEmpty() && (" " + names.get(i) + " ").contains(" " + title + " ")) hits++;
         }
         return hits >= Math.ceil(TITLE_SHARE * names.size());
+    }
+
+    /** The ripper names a failed track "Track-12.flac" with no tags; this reads its number from the name. */
+    private static final java.util.regex.Pattern RIPPER_TRACK = java.util.regex.Pattern.compile("(?i)^track[\\s_-]*(\\d{1,3})\\b");
+
+    /**
+     * Normalised names in track order: the number the file name starts with, else the tag number, else a
+     * "Track-NN" name, else after the rest in name order. Alphabetical order alone puts "Track-12" last,
+     * which shifts every later title one place and hides a second copy of the album.
+     */
+    static List<String> namesInTrackOrder(List<TrackInfo> tracks) {
+        List<TrackInfo> sorted = new ArrayList<>(tracks); // input is in name order; the sort is stable
+        sorted.sort(Comparator.comparingInt(TimestampDiscs::position));
+        List<String> n = new ArrayList<>();
+        for (TrackInfo t : sorted) n.add(Text.norm(t.name));
+        return n;
+    }
+
+    private static int position(TrackInfo t) {
+        // File name first: some ripper tags count from 0, the file names never do.
+        if (t.fileNumber != null) return t.fileNumber;
+        if (t.track != null && t.track > 0) return t.track;
+        if (t.name != null) {
+            java.util.regex.Matcher m = RIPPER_TRACK.matcher(t.name);
+            if (m.find()) return Integer.parseInt(m.group(1));
+        }
+        return Integer.MAX_VALUE;
     }
 
     private static boolean distinct(int[] pick) {

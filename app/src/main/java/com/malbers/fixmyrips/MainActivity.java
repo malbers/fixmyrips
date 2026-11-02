@@ -337,7 +337,13 @@ public class MainActivity extends Activity {
             File[] kids = dir.listFiles(f -> f.isDirectory() && !f.getName().startsWith("."));
             if (kids != null) {
                 Arrays.sort(kids, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-                for (File k : kids) adapter.add(new ItemAdapter.Item("/" + k.getName(), null, "›", Ui.SUB, null, false, k).withIcon(R.drawable.ic_folder));
+                // The folder's date tells two copies of one album apart (ripped vs copied in later).
+                java.text.DateFormat df = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM);
+                for (File k : kids) {
+                    long t = k.lastModified();
+                    String status = t > 0 ? df.format(new java.util.Date(t)) + "  ›" : "›";
+                    adapter.add(new ItemAdapter.Item("/" + k.getName(), null, status, Ui.SUB, null, false, k).withIcon(R.drawable.ic_folder));
+                }
             }
             if (adapter.getCount() == 0) adapter.add(new ItemAdapter.Item("No folders in here", "Scan it, or go up", null, Ui.SUB, null, false, null));
         }
