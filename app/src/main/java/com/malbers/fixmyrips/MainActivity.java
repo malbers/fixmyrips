@@ -28,6 +28,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.malbers.fixmyrips.core.Album;
+import com.malbers.fixmyrips.core.TagReader;
+import com.malbers.fixmyrips.core.ArtistNames;
 import com.malbers.fixmyrips.core.FixPlanner;
 import com.malbers.fixmyrips.core.Fixer;
 import com.malbers.fixmyrips.core.InventoryServer;
@@ -426,6 +428,9 @@ public class MainActivity extends Activity {
     }
 
     private final List<Row> rows = new ArrayList<>();
+    /** Artists spelled two ways in the last scan ("Beatles" / "The Beatles"), for the owner to choose. */
+    private List<ArtistNames.Group> artistGroups = new ArrayList<>();
+    private static final Object ARTISTS_ROW = new Object();
     private volatile boolean cancelled;
     private int planned;
 
@@ -433,6 +438,7 @@ public class MainActivity extends Activity {
         prefs.edit().putString("last", dir.getPath()).apply();
         scanRoot = dir;
         rows.clear();
+        artistGroups = new ArrayList<>();
         cancelled = false;
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -509,6 +515,13 @@ public class MainActivity extends Activity {
                     listed.set(i, LibraryIndex.entry(row.album, row.check, row.plan));
                 }
             }
+            // Artists spelled two ways across the folder: found here, chosen by the owner on their own screen.
+            if (!cancelled) {
+                Map<Album, String> artistOf = new java.util.LinkedHashMap<>();
+                for (Row row : made) artistOf.put(row.album, TagReader.read(row.album.firstAudio).bestArtist());
+                List<ArtistNames.Group> groups = ArtistNames.find(artistOf);
+                runOnUiThread(() -> artistGroups = groups);
+            }
             // A finished scan replaces this folder's part of the library list; a stopped one is not saved,
             // since it would drop the albums it never reached.
             if (!cancelled) {
@@ -571,6 +584,7 @@ public class MainActivity extends Activity {
                 case "TRACKTOTAL": w = "track total"; break;
                 case "DISCNUMBER": w = "disc number"; break;
                 case "DISCTOTAL": w = "disc total"; break;
+                case "ARTIST": case "ALBUMARTIST": case "ALBUM ARTIST": w = "artist name"; break;
                 default: w = c.key.toLowerCase(Locale.ROOT);
             }
             if (!what.contains(w)) what.add(w);
@@ -602,6 +616,12 @@ public class MainActivity extends Activity {
         boolean onlyCopies = shown.isEmpty() && rerips.isEmpty() && !copies.isEmpty();
         shown.addAll(rerips);
         shown.addAll(copies);
+        if (!artistGroups.isEmpty()) {
+            ArtistNames.Group g0 = artistGroups.get(0);
+            shown.add(0, new ItemAdapter.Item("Artist names: " + artistGroups.size() + (artistGroups.size() == 1 ? " artist" : " artists") + " spelled two ways",
+                    "e.g. " + g0.majority().name + " / " + g0.spellings.get(1).name + " · you choose which spelling to keep",
+                    "Choose", Ui.ACCENT, null, false, ARTISTS_ROW));
+        }
 
         LinearLayout body = Ui.column(this);
         LinearLayout chips = Ui.row(this);
@@ -623,7 +643,11 @@ public class MainActivity extends Activity {
         adapter.addAll(shown);
         LinearLayout box = card();
         ListView l = list(adapter);
-        l.setOnItemClickListener((p, v, pos, id) -> showAlbum((Row) adapter.getItem(pos).tag));
+        l.setOnItemClickListener((p, v, pos, id) -> {
+            Object tag = adapter.getItem(pos).tag;
+            if (tag == ARTISTS_ROW) showArtists();
+            else if (tag instanceof Row) showAlbum((Row) tag);
+        });
         box.addView(l, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
         body.addView(box, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
 
@@ -734,6 +758,8 @@ public class MainActivity extends Activity {
             case "TRACKTOTAL": return "Tracks on album";
             case "DISCNUMBER": return "Disc number";
             case "DISCTOTAL": return "Discs in set";
+            case "ARTIST": return "Artist";
+            case "ALBUMARTIST": case "ALBUM ARTIST": return "Album artist";
             default: return key;
         }
     }
@@ -891,9 +917,15 @@ public class MainActivity extends Activity {
                     File album = new File(d[0]);
                     String artist = album.getParentFile() != null ? album.getParentFile().getName() + " · " : "";
                     String sub = when.format(new Date(Long.parseLong(d[1]))) + " · " + d[2] + " tag changes";
-                    ItemAdapter.Item row = new ItemAdapter.Item(artist + album.getName(), sub, "Undo", Ui.ACCENT, null, false, rec);
+                    // The folder was moved, renamed or deleted since the fix: say so rather than fail on tap.
+                    boolean gone = !album.isDirectory();
+                    if (gone) sub += " · folder moved or renamed";
+                    String status = gone ? "Moved" : "Undo";
+                    int color = gone ? Ui.SUB : Ui.ACCENT;
+                    Object tag = gone ? new MovedRecord(rec) : rec;
+                    ItemAdapter.Item row = new ItemAdapter.Item(artist + album.getName(), sub, status, color, null, false, tag);
                     all.add(group.size() > 1 ? row.withIndent() : row);
-                    albums.add(new ItemAdapter.Item(artist + album.getName(), sub, "Undo", Ui.ACCENT, null, false, rec));
+                    albums.add(new ItemAdapter.Item(artist + album.getName(), sub, status, color, null, false, tag));
                 }
             }
         }
@@ -947,6 +979,7 @@ public class MainActivity extends Activity {
         l.setOnItemClickListener((parent, v, pos, id) -> {
             Object tag = adapter.getItem(pos).tag;
             if (tag instanceof File) confirmUndo((File) tag, adapter.getItem(pos).title.trim());
+            else if (tag instanceof MovedRecord) showMoved(((MovedRecord) tag).record, adapter.getItem(pos).title.trim());
             else if (tag instanceof UndoRun) confirmUndoAll(((UndoRun) tag).records);
         });
         body.addView(l, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
@@ -992,6 +1025,141 @@ public class MainActivity extends Activity {
             }, "undo").start();
         });
         frame(Screen.CONFIRM, "Undo", body, Ui.button(this, "Cancel", v -> showUndo()), go);
+    }
+
+    // ---------- artist names ----------
+
+    private void showArtists() {
+        ItemAdapter adapter = new ItemAdapter(this);
+        for (ArtistNames.Group g : artistGroups) {
+            List<String> names = new ArrayList<>();
+            List<String> counts = new ArrayList<>();
+            for (ArtistNames.Spelling s : g.spellings) {
+                names.add(s.name);
+                counts.add(s.name + " (" + s.albums.size() + ")");
+            }
+            adapter.add(new ItemAdapter.Item(String.join(" / ", names), String.join(" · ", counts), "Choose", Ui.ACCENT, null, false, g));
+        }
+        if (adapter.getCount() == 0) adapter.add(new ItemAdapter.Item("All artist names match", "Nothing to choose.", null, Ui.SUB, null, false, null));
+        LinearLayout body = Ui.column(this);
+        TextView n = Ui.text(this, "The same artist is spelled more than one way in this folder, so the Eversolo lists them as "
+                + "separate artists. Tap one to choose which spelling to keep. Nothing changes until you confirm.", 15, Ui.TEXT, false);
+        n.setPadding(Ui.dp(this, 4), 0, 0, Ui.dp(this, 8));
+        body.addView(n);
+        LinearLayout box = card();
+        ListView l = list(adapter);
+        l.setOnItemClickListener((p, v, pos, id) -> {
+            Object tag = adapter.getItem(pos).tag;
+            if (tag instanceof ArtistNames.Group) showChooser((ArtistNames.Group) tag);
+        });
+        box.addView(l, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
+        body.addView(box, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+        frame(Screen.RESULTS, "Artist names", body, Ui.button(this, "Back to results", true, v -> showResults()));
+    }
+
+    /** The owner picks the spelling; the most-used one is pre-selected, never applied on its own. */
+    private void showChooser(ArtistNames.Group g) {
+        LinearLayout body = card();
+        int p = Ui.dp(this, 18);
+        body.setPadding(p, p, p, p);
+        ArtistNames.Spelling top = g.majority();
+        body.addView(Ui.text(this, "Most of your albums say " + top.name + " (" + top.albums.size() + "). Which spelling should all "
+                + g.albumCount() + " use?", 18, Ui.TEXT, true));
+        android.widget.RadioGroup choices = new android.widget.RadioGroup(this);
+        choices.setPadding(0, Ui.dp(this, 10), 0, 0);
+        for (int i = 0; i < g.spellings.size(); i++) {
+            ArtistNames.Spelling s = g.spellings.get(i);
+            android.widget.RadioButton rb = new android.widget.RadioButton(this);
+            rb.setId(i + 1);
+            StringBuilder t = new StringBuilder(s.name + "  ·  " + s.albums.size() + (s.albums.size() == 1 ? " album" : " albums"));
+            if (s.albums.size() <= 3) {
+                List<String> a = new ArrayList<>();
+                for (Album al : s.albums) a.add(al.dir.getName());
+                t.append(": ").append(String.join(", ", a));
+            }
+            if (s.notChangeable > 0) t.append("  (").append(s.notChangeable).append(" MP3, can't change yet)");
+            rb.setText(t.toString());
+            rb.setTextColor(Ui.TEXT);
+            rb.setTextSize(15);
+            rb.setButtonTintList(ColorStateList.valueOf(Ui.ACCENT));
+            choices.addView(rb);
+        }
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(choices);
+        body.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+        TextView hint = Ui.text(this, "Only the artist tags change, on every track of the albums that use the other spelling. "
+                + "Guest credits like \"feat.\" are left as they are. You'll see the changes before anything is written, and it can be undone.",
+                13, Ui.SUB, false);
+        hint.setPadding(0, Ui.dp(this, 8), 0, 0);
+        body.addView(hint);
+
+        Button go = Ui.button(this, "", true, null);
+        Runnable label = () -> {
+            ArtistNames.Spelling keep = g.spellings.get(choices.getCheckedRadioButtonId() - 1);
+            int n = 0;
+            for (ArtistNames.Spelling s : g.spellings) if (s != keep) n += s.albums.size() - s.notChangeable;
+            go.setText(n == 1 ? "Change 1 album" : "Change " + n + " albums");
+            go.setEnabled(n > 0);
+        };
+        choices.setOnCheckedChangeListener((group, id) -> label.run());
+        choices.check(1); // the most-used spelling, pre-selected
+        go.setOnClickListener(v -> {
+            ArtistNames.Spelling keep = g.spellings.get(choices.getCheckedRadioButtonId() - 1);
+            go.setEnabled(false);
+            go.setText("Reading tags…");
+            new Thread(() -> {
+                List<Row> todo = new ArrayList<>();
+                for (ArtistNames.Spelling s : g.spellings) {
+                    if (s == keep) continue;
+                    for (Album a : s.albums) {
+                        try {
+                            FixPlanner.Plan plan = ArtistNames.plan(a, s.name, keep.name);
+                            if (plan.fixable()) todo.add(new Row(a, null, plan));
+                        } catch (Exception ignored) {
+                            // An album whose tags can't be read is left out; the rest go ahead.
+                        }
+                    }
+                }
+                runOnUiThread(() -> {
+                    if (todo.isEmpty()) {
+                        go.setText("Nothing to change");
+                        return;
+                    }
+                    // The group stays listed until the next scan; choosing it again then finds nothing to change.
+                    confirmFix(todo);
+                });
+            }, "artist-plan").start();
+        });
+        frame(Screen.CONFIRM, "Artist names", body, Ui.button(this, "Back", v -> showArtists()), go);
+    }
+
+    /** An undo record whose album folder is no longer where it was fixed. */
+    private static final class MovedRecord {
+        final File record;
+        MovedRecord(File record) { this.record = record; }
+    }
+
+    /** Explains why a record can't be undone, and offers to take it off the list. */
+    private void showMoved(File rec, String album) {
+        String[] d = Fixer.describe(rec);
+        LinearLayout body = card();
+        int p = Ui.dp(this, 18);
+        body.setPadding(p, p, p, p);
+        body.addView(Ui.text(this, "Can't undo " + album, 20, Ui.TEXT, true));
+        TextView t = Ui.text(this, "The folder this fix was made in is no longer there:\n" + (d != null ? d[0] : "")
+                + "\n\nIt was moved, renamed or deleted after the fix, so FixMyRips can't find the files to put the old tags back. "
+                + "If you renamed it, the fix is still in the files and nothing is wrong.\n\n"
+                + "You can take this entry off the list. That only removes the undo record; it changes no music.", 15, Ui.SUB, false);
+        t.setPadding(0, Ui.dp(this, 10), 0, 0);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(t);
+        body.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+        Button remove = Ui.button(this, "Remove from list", true, v -> {
+            //noinspection ResultOfMethodCallIgnored
+            rec.delete();
+            showUndo();
+        });
+        frame(Screen.CONFIRM, "Undo", body, Ui.button(this, "Back", v -> showUndo()), remove);
     }
 
     /** The undo records of one Fix all run, as the tag of its "Undo all" row. */
