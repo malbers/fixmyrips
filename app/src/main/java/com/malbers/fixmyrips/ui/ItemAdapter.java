@@ -67,6 +67,13 @@ public final class ItemAdapter extends BaseAdapter {
         notifyDataSetChanged();
     }
 
+    /** Replaces the whole list, e.g. when a search box filters it. */
+    public void setAll(List<Item> list) {
+        items.clear();
+        items.addAll(list);
+        notifyDataSetChanged();
+    }
+
     @Override public int getCount() { return items.size(); }
     @Override public Item getItem(int p) { return items.get(p); }
     @Override public long getItemId(int p) { return p; }

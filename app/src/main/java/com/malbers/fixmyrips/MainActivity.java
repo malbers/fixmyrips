@@ -34,6 +34,7 @@ import com.malbers.fixmyrips.core.InventoryServer;
 import com.malbers.fixmyrips.core.LibraryIndex;
 import com.malbers.fixmyrips.core.AlbumScanner;
 import com.malbers.fixmyrips.core.RipCheck;
+import com.malbers.fixmyrips.core.Text;
 import com.malbers.fixmyrips.core.TimestampDiscs;
 import com.malbers.fixmyrips.core.UpdateCheck;
 import com.malbers.fixmyrips.core.UrlHttp;
@@ -581,6 +582,7 @@ public class MainActivity extends Activity {
         int fix = 0, rerip = 0, ok = 0, skipped = 0;
         List<ItemAdapter.Item> shown = new ArrayList<>();
         List<ItemAdapter.Item> rerips = new ArrayList<>();
+        List<ItemAdapter.Item> copies = new ArrayList<>(); // fine on their own, but worth seeing: two rips of one disc
         for (Row r : rows) {
             if (r.plan.fixable()) {
                 fix++;
@@ -592,11 +594,14 @@ public class MainActivity extends Activity {
                 skipped++;
             } else {
                 ok++;
+                if (r.hint != null && r.hint.secondCopy) copies.add(rowItem(r));
             }
         }
         // Re-rip albums that are also fixable already show above; the rest follow.
         for (Row r : rows) if (r.plan.fixable() && !r.plan.reRip.isEmpty()) rerip++;
+        boolean onlyCopies = shown.isEmpty() && rerips.isEmpty() && !copies.isEmpty();
         shown.addAll(rerips);
+        shown.addAll(copies);
 
         LinearLayout body = Ui.column(this);
         LinearLayout chips = Ui.row(this);
@@ -608,6 +613,7 @@ public class MainActivity extends Activity {
 
         String note = (cancelled ? "Stopped after " + rows.size() + " of " + planned + " albums. " : "")
                 + (shown.isEmpty() ? "Nothing to fix and nothing to re-rip in the albums checked."
+                    : onlyCopies ? "Nothing to fix and nothing to re-rip. These look like two rips of the same disc: tap one to see which folders."
                     : "Tap an album to see exactly what would change. Nothing changes until you tap Fix.");
         TextView n = Ui.text(this, note, 15, Ui.TEXT, false);
         n.setPadding(Ui.dp(this, 4), Ui.dp(this, 12), 0, Ui.dp(this, 8));
@@ -857,6 +863,8 @@ public class MainActivity extends Activity {
     private void showUndo() {
         File[] recs = undoDir().listFiles(f -> f.getName().endsWith(".json"));
         ItemAdapter adapter = new ItemAdapter(this);
+        List<ItemAdapter.Item> all = new ArrayList<>();    // newest first, runs grouped under "Undo all"
+        List<ItemAdapter.Item> albums = new ArrayList<>(); // one row per album, for search and A-Z
         if (recs != null) {
             Arrays.sort(recs, (a, b) -> b.getName().compareTo(a.getName()));
             SimpleDateFormat when = new SimpleDateFormat("MMM d, HH:mm", Locale.US);
@@ -874,7 +882,7 @@ public class MainActivity extends Activity {
                 if (group.size() > 1) {
                     int changes = 0;
                     for (File rec : group) changes += Integer.parseInt(info.get(rec)[2]);
-                    adapter.add(new ItemAdapter.Item("Fix all · " + group.size() + " albums",
+                    all.add(new ItemAdapter.Item("Fix all · " + group.size() + " albums",
                             when.format(new Date(Long.parseLong(run.getKey()))) + " · " + changes + " tag changes",
                             "Undo all", Ui.ACCENT, null, false, new UndoRun(group)));
                 }
@@ -882,21 +890,65 @@ public class MainActivity extends Activity {
                     String[] d = info.get(rec);
                     File album = new File(d[0]);
                     String artist = album.getParentFile() != null ? album.getParentFile().getName() + " · " : "";
-                    adapter.add(new ItemAdapter.Item((group.size() > 1 ? "   " : "") + artist + album.getName(),
-                            when.format(new Date(Long.parseLong(d[1]))) + " · " + d[2] + " tag changes",
-                            "Undo", Ui.ACCENT, null, false, rec));
+                    String sub = when.format(new Date(Long.parseLong(d[1]))) + " · " + d[2] + " tag changes";
+                    all.add(new ItemAdapter.Item((group.size() > 1 ? "   " : "") + artist + album.getName(), sub, "Undo", Ui.ACCENT, null, false, rec));
+                    albums.add(new ItemAdapter.Item(artist + album.getName(), sub, "Undo", Ui.ACCENT, null, false, rec));
                 }
             }
         }
-        if (adapter.getCount() == 0) adapter.add(new ItemAdapter.Item("Nothing to undo", "Fixes you make show up here.", null, Ui.SUB, null, false, null));
+        if (all.isEmpty()) all.add(new ItemAdapter.Item("Nothing to undo", "Fixes you make show up here.", null, Ui.SUB, null, false, null));
+        adapter.setAll(all);
         LinearLayout body = card();
+
+        // Search: with many fixes the list gets long. While searching, only matching albums show (no
+        // "Undo all" rows), so a filtered list can never undo a whole run by accident.
+        android.widget.EditText search = new android.widget.EditText(this);
+        search.setHint("Search artist or album");
+        search.setSingleLine(true);
+        search.setTextColor(Ui.TEXT);
+        search.setHintTextColor(Ui.SUB);
+        search.setTextSize(15);
+        search.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        // Sort: newest first (with the "Undo all" rows) or A-Z by artist and album, to scroll to one.
+        List<ItemAdapter.Item> az = new ArrayList<>(albums);
+        az.sort((a, b) -> Text.searchKey(a.title).compareTo(Text.searchKey(b.title)));
+        boolean[] byName = {false};
+        Button sort = Ui.button(this, "Sort: Newest", null);
+        Runnable refresh = () -> {
+            String q = Text.searchKey(search.getText().toString());
+            if (q.isEmpty()) {
+                adapter.setAll(byName[0] ? az : all);
+                return;
+            }
+            List<ItemAdapter.Item> hits = new ArrayList<>();
+            for (ItemAdapter.Item it : byName[0] ? az : albums) if (Text.matchesAll(Text.searchKey(it.title), q)) hits.add(it);
+            if (hits.isEmpty()) hits.add(new ItemAdapter.Item("No match", "Try part of the artist or album name.", null, Ui.SUB, null, false, null));
+            adapter.setAll(hits);
+        };
+        sort.setOnClickListener(v -> {
+            byName[0] = !byName[0];
+            sort.setText(byName[0] ? "Sort: A-Z" : "Sort: Newest");
+            refresh.run();
+        });
+        search.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void afterTextChanged(android.text.Editable s) { refresh.run(); }
+        });
+        if (albums.size() > 1) {
+            LinearLayout tools = Ui.row(this);
+            tools.addView(search, Ui.weight(1));
+            tools.addView(sort, Ui.wrap(Ui.dp(this, 10)));
+            body.addView(tools, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        }
+
         ListView l = list(adapter);
         l.setOnItemClickListener((parent, v, pos, id) -> {
             Object tag = adapter.getItem(pos).tag;
             if (tag instanceof File) confirmUndo((File) tag, adapter.getItem(pos).title.trim());
             else if (tag instanceof UndoRun) confirmUndoAll(((UndoRun) tag).records);
         });
-        body.addView(l, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
+        body.addView(l, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         frame(Screen.UNDO, "Undo history · newest first", body,
                 Ui.button(this, "Back", true, v -> { if (scanRoot != null && !rows.isEmpty()) showResults(); else showBrowse(browseDir); }));
     }
