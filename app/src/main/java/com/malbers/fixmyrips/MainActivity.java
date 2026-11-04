@@ -618,9 +618,12 @@ public class MainActivity extends Activity {
         shown.addAll(copies);
         if (!artistGroups.isEmpty()) {
             ArtistNames.Group g0 = artistGroups.get(0);
+            boolean any = false;
+            for (ArtistNames.Group g : artistGroups) any |= g.canChange();
+            // Still opens the list when nothing can change, so the owner sees which artists; only the status says so.
             shown.add(0, new ItemAdapter.Item("Artist names: " + artistGroups.size() + (artistGroups.size() == 1 ? " artist" : " artists") + " spelled two ways",
                     "e.g. " + g0.majority().name + " / " + g0.spellings.get(1).name + " · you choose which spelling to keep",
-                    "Choose", Ui.ACCENT, null, false, ARTISTS_ROW));
+                    any ? ArtistNames.CHOOSE : ArtistNames.CANT_CHANGE, any ? Ui.ACCENT : Ui.SUB, null, false, ARTISTS_ROW));
         }
 
         LinearLayout body = Ui.column(this);
@@ -1038,7 +1041,9 @@ public class MainActivity extends Activity {
                 names.add(s.name);
                 counts.add(s.name + " (" + s.albums.size() + ")");
             }
-            adapter.add(new ItemAdapter.Item(String.join(" / ", names), String.join(" · ", counts), "Choose", Ui.ACCENT, null, false, g));
+            // A group nothing in which can change shows why instead of a Choose that leads nowhere, and isn't tappable.
+            adapter.add(new ItemAdapter.Item(String.join(" / ", names), String.join(" · ", counts), g.status(),
+                    g.canChange() ? Ui.ACCENT : Ui.SUB, null, false, g.canChange() ? g : null));
         }
         if (adapter.getCount() == 0) adapter.add(new ItemAdapter.Item("All artist names match", "Nothing to choose.", null, Ui.SUB, null, false, null));
         LinearLayout body = Ui.column(this);
@@ -1096,10 +1101,9 @@ public class MainActivity extends Activity {
         Button go = Ui.button(this, "", true, null);
         Runnable label = () -> {
             ArtistNames.Spelling keep = g.spellings.get(choices.getCheckedRadioButtonId() - 1);
-            int n = 0;
-            for (ArtistNames.Spelling s : g.spellings) if (s != keep) n += s.albums.size() - s.notChangeable;
-            go.setText(n == 1 ? "Change 1 album" : "Change " + n + " albums");
-            go.setEnabled(n > 0);
+            int n = g.changes(keep);
+            go.setText(g.buttonLabel(keep));
+            Ui.setPrimaryEnabled(this, go, n > 0); // a dead button never keeps the orange "tap me" look
         };
         choices.setOnCheckedChangeListener((group, id) -> label.run());
         choices.check(1); // the most-used spelling, pre-selected
@@ -1123,6 +1127,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     if (todo.isEmpty()) {
                         go.setText("Nothing to change");
+                        Ui.setPrimaryEnabled(this, go, false);
                         return;
                     }
                     // The group stays listed until the next scan; choosing it again then finds nothing to change.

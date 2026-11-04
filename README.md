@@ -52,7 +52,7 @@ Stand at your shelf with your phone. No app to install, just its browser. It eve
 - **A missing disc number and disc total** on multi-disc sets, taken from "Disc 1", "Disc 2" folder names, and only when the sibling discs run 1 to N.
 - **Second discs in a dated folder.** When an album's folder name is already taken, the Eversolo CD Ripper puts the next disc in a folder like `Album-20250824181140` instead of "Disc 2". FixMyRips matches each folder's track titles against the release on MusicBrainz and adds the right disc numbers. The folder names stay as they are. A dated folder that turns out to be a second copy of the same disc is pointed out instead, and left alone.
 
-- **One artist spelled two ways** ("Beatles" and "The Beatles"). You choose the spelling; only artist tags that exactly match the other spelling change, so guest credits ("feat.") stay as they are. FLAC only, for now.
+- **One artist spelled two ways** ("Beatles" and "The Beatles"). You choose the spelling; only artist tags that exactly match the other spelling change, so guest credits ("feat.") stay as they are. FLAC and MP3 (ID3v2.3 and 2.4 tags); an MP3 FixMyRips can't change yet, such as one with no ID3v2 tag or an old v2.2 one, is listed as "MP3, can't change yet".
 
 Every rule skips when it can't be sure, and says why. **A wrong tag is worse than a missing one.** Works on FLAC and MP3.
 

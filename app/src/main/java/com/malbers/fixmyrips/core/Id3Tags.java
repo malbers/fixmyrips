@@ -114,13 +114,66 @@ public final class Id3Tags {
         return out;
     }
 
-    /** The track and disc numbers as Vorbis-style lines, in this order, only those present. */
+    /**
+     * The track and disc numbers, then the artist (TPE1) and album artist (TPE2), as Vorbis-style lines, in
+     * this order, only those present. The artist lines are the frame's whole text (several values stay joined
+     * by NUL, so they never equal a plain name); v2.2 tags have no artist lines, since they can't be written.
+     */
     public static List<String> comments(File f) throws IOException {
-        Tag t = parse(f);
+        return comments(parse(f));
+    }
+
+    static List<String> comments(Tag t) {
         List<String> out = new ArrayList<>();
         split(out, text(t.get("TRCK")), "TRACKNUMBER", "TRACKTOTAL");
         split(out, text(t.get("TPOS")), "DISCNUMBER", "DISCTOTAL");
+        if (t.major != 2) {
+            for (int i = 0; i < ARTIST_FRAMES.length; i++) {
+                Frame fr = t.get(ARTIST_FRAMES[i]);
+                if (fr != null) out.add(ARTIST_KEYS[i] + "=" + fullText(fr));
+            }
+        }
         return out;
+    }
+
+    /** The artist frames FixMyRips writes, and the Vorbis names they are presented under. */
+    static final String[] ARTIST_FRAMES = {"TPE1", "TPE2"};
+    static final String[] ARTIST_KEYS = {"ARTIST", "ALBUMARTIST"};
+
+    /**
+     * Why the artist tags of this MP3 can't be changed, or null when they can: the file needs an ID3v2.3 or
+     * 2.4 tag FixMyRips can rewrite, with at most one TPE1 and one TPE2, neither compressed, encrypted,
+     * read-only or in an unknown text encoding.
+     */
+    public static String whyArtistUnchangeable(File f) {
+        Tag t;
+        try {
+            t = parse(f);
+        } catch (IOException e) {
+            return e.getMessage();
+        }
+        if (!t.present) return "no ID3v2 tag";
+        if (t.major == 2) return "ID3v2.2 tag";
+        for (String id : ARTIST_FRAMES) {
+            int n = 0;
+            for (Frame fr : t.frames) {
+                if (!fr.id.equals(id)) continue;
+                n++;
+                String why = whyNotRewritable(t.major, fr);
+                if (why != null) return why;
+            }
+            if (n > 1) return "more than one " + id + " frame";
+        }
+        return null;
+    }
+
+    /** Why this text frame can't be rewritten, or null. */
+    private static String whyNotRewritable(int major, Frame fr) {
+        if (fr.flags2 != 0) return "compressed or encrypted " + fr.id + " frame";
+        int status = fr.raw[8] & 0xff;
+        if ((status & (major == 4 ? 0x10 : 0x20)) != 0) return "read-only " + fr.id + " frame";
+        if (fr.body.length > 0 && (fr.body[0] & 0xff) > 3) return fr.id + " frame in an unknown text encoding";
+        return null;
     }
 
     public static FlacTags.Written snapshot(File f) throws IOException {
@@ -128,33 +181,61 @@ public final class Id3Tags {
         return new FlacTags.Written(FlacTags.readRange(f, 0, t.audioOffset), FlacTags.audioSha256(f, t.audioOffset), false);
     }
 
-    /** Writes TRCK and TPOS from {@code comments}; everything else in the tag stays as it was. */
+    /**
+     * Writes TRCK, TPOS, TPE1 and TPE2 from {@code comments}. A frame is rewritten only when its value
+     * changes; every other frame, and every frame whose value is unchanged, stays byte for byte as it was.
+     */
     public static FlacTags.Written write(File f, List<String> comments) throws IOException {
         Tag t = parse(f);
-        for (String id : new String[] {"TRCK", "TPOS"}) {
-            Frame old = t.get(id);
-            if (old != null && old.flags2 != 0) throw new FlacTags.NotEditable("compressed or encrypted " + id + " frame");
+        List<String> before = comments(t);
+
+        String trck = join(FlacTags.get(comments, "TRACKNUMBER"), FlacTags.get(comments, "TRACKTOTAL"));
+        String tpos = join(FlacTags.get(comments, "DISCNUMBER"), FlacTags.get(comments, "DISCTOTAL"));
+        boolean newTrck = !java.util.Objects.equals(trck, join(FlacTags.get(before, "TRACKNUMBER"), FlacTags.get(before, "TRACKTOTAL")));
+        boolean newTpos = !java.util.Objects.equals(tpos, join(FlacTags.get(before, "DISCNUMBER"), FlacTags.get(before, "DISCTOTAL")));
+        String[] artist = new String[ARTIST_FRAMES.length];
+        boolean[] newArtist = new boolean[ARTIST_FRAMES.length];
+        for (int i = 0; i < ARTIST_FRAMES.length; i++) {
+            artist[i] = FlacTags.get(comments, ARTIST_KEYS[i]);
+            newArtist[i] = !java.util.Objects.equals(artist[i], FlacTags.get(before, ARTIST_KEYS[i]));
+        }
+
+        // Refuse before anything is written.
+        for (Frame fr : t.frames) {
+            boolean touched = fr.id.equals("TRCK") && newTrck || fr.id.equals("TPOS") && newTpos;
+            if (touched && fr.flags2 != 0) throw new FlacTags.NotEditable("compressed or encrypted " + fr.id + " frame");
+        }
+        for (int i = 0; i < ARTIST_FRAMES.length; i++) {
+            if (!newArtist[i]) continue;
+            String why = t.major == 2 ? "ID3v2.2 tag" : whyArtistUnchangeable(f);
+            if (why != null) throw new FlacTags.NotEditable("artist names can't be changed in this MP3: " + why);
         }
         byte[] original = FlacTags.readRange(f, 0, t.audioOffset);
         String audioBefore = FlacTags.audioSha256(f, t.audioOffset);
 
-        String trck = join(FlacTags.get(comments, "TRACKNUMBER"), FlacTags.get(comments, "TRACKTOTAL"));
-        String tpos = join(FlacTags.get(comments, "DISCNUMBER"), FlacTags.get(comments, "DISCTOTAL"));
         List<byte[]> frames = new ArrayList<>();
         boolean sawTrck = false, sawTpos = false;
+        boolean[] sawArtist = new boolean[ARTIST_FRAMES.length];
         for (Frame fr : t.frames) {
-            if (fr.id.equals("TRCK")) {
+            int a = java.util.Arrays.asList(ARTIST_FRAMES).indexOf(fr.id);
+            if (fr.id.equals("TRCK") && newTrck) {
                 sawTrck = true;
                 if (trck != null) frames.add(frame(t.major, "TRCK", trck));
-            } else if (fr.id.equals("TPOS")) {
+            } else if (fr.id.equals("TPOS") && newTpos) {
                 sawTpos = true;
                 if (tpos != null) frames.add(frame(t.major, "TPOS", tpos));
+            } else if (a >= 0 && newArtist[a]) {
+                sawArtist[a] = true;
+                if (artist[a] != null) frames.add(textFrame(t.major, fr, fr.id, artist[a]));
             } else {
                 frames.add(fr.raw);
             }
         }
-        if (!sawTrck && trck != null) frames.add(frame(t.major, "TRCK", trck));
-        if (!sawTpos && tpos != null) frames.add(frame(t.major, "TPOS", tpos));
+        if (newTrck && !sawTrck && trck != null) frames.add(frame(t.major, "TRCK", trck));
+        if (newTpos && !sawTpos && tpos != null) frames.add(frame(t.major, "TPOS", tpos));
+        for (int i = 0; i < ARTIST_FRAMES.length; i++) {
+            if (newArtist[i] && !sawArtist[i] && artist[i] != null) frames.add(textFrame(t.major, null, ARTIST_FRAMES[i], artist[i]));
+        }
         int used = 0;
         for (byte[] fr : frames) used += fr.length;
 
@@ -162,7 +243,8 @@ public final class Id3Tags {
         int size = inPlace ? t.size : used + NEW_PADDING;
         ByteArrayOutputStream b = new ByteArrayOutputStream();
         b.write('I'); b.write('D'); b.write('3');
-        b.write(t.major); b.write(0); b.write(0);
+        // The revision and flag bytes stay as they were (parse already refused the flags it can't keep).
+        b.write(t.major); b.write(t.present ? original[4] : 0); b.write(t.present ? original[5] : 0);
         b.write(size >> 21 & 0x7f); b.write(size >> 14 & 0x7f); b.write(size >> 7 & 0x7f); b.write(size & 0x7f);
         for (byte[] fr : frames) b.write(fr, 0, fr.length);
         for (int i = used; i < size; i++) b.write(0);
@@ -221,6 +303,73 @@ public final class Id3Tags {
         b.write(0);
         b.write(text, 0, text.length);
         return b.toByteArray();
+    }
+
+    /**
+     * A v2.3/2.4 text frame holding {@code value}, in the text encoding of {@code old} (null for a new frame).
+     * The old frame's flag bytes, byte order mark and string terminator are kept. A Latin-1 frame whose new
+     * value has characters Latin-1 lacks becomes UTF-16 with a byte order mark, valid in both versions.
+     */
+    static byte[] textFrame(int major, Frame old, String id, String value) {
+        int enc = old != null && old.body.length > 0 ? old.body[0] & 0xff : 0;
+        boolean terminated = old != null && terminated(old.body);
+        boolean littleEndian = true; // the usual order for UTF-16 with a byte order mark
+        if (enc == 1 && old.body.length >= 3) littleEndian = (old.body[1] & 0xff) == 0xFF && (old.body[2] & 0xff) == 0xFE;
+        if (enc == 0 && !StandardCharsets.ISO_8859_1.newEncoder().canEncode(value)) enc = 1;
+
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        body.write(enc);
+        byte[] text;
+        switch (enc) {
+            case 1:
+                body.write(littleEndian ? 0xFF : 0xFE);
+                body.write(littleEndian ? 0xFE : 0xFF);
+                text = value.getBytes(littleEndian ? StandardCharsets.UTF_16LE : StandardCharsets.UTF_16BE);
+                break;
+            case 2: text = value.getBytes(StandardCharsets.UTF_16BE); break;
+            case 3: text = value.getBytes(StandardCharsets.UTF_8); break;
+            default: text = value.getBytes(StandardCharsets.ISO_8859_1); break;
+        }
+        body.write(text, 0, text.length);
+        if (terminated) {
+            body.write(0);
+            if (enc == 1 || enc == 2) body.write(0);
+        }
+        int len = body.size();
+        ByteArrayOutputStream b = new ByteArrayOutputStream();
+        b.write(id.getBytes(StandardCharsets.ISO_8859_1), 0, 4);
+        if (major == 4) {
+            b.write(len >> 21 & 0x7f); b.write(len >> 14 & 0x7f); b.write(len >> 7 & 0x7f); b.write(len & 0x7f);
+        } else {
+            b.write(len >> 24 & 0xff); b.write(len >> 16 & 0xff); b.write(len >> 8 & 0xff); b.write(len & 0xff);
+        }
+        b.write(old != null ? old.raw[8] : 0);
+        b.write(old != null ? old.raw[9] : 0);
+        byte[] d = body.toByteArray();
+        b.write(d, 0, d.length);
+        return b.toByteArray();
+    }
+
+    /** True when a text frame body ends with its encoding's string terminator. */
+    private static boolean terminated(byte[] body) {
+        if (body.length < 2) return false;
+        int enc = body[0] & 0xff;
+        if (enc == 1 || enc == 2) {
+            return (body.length - 1) % 2 == 0 && body.length >= 3 && body[body.length - 1] == 0 && body[body.length - 2] == 0;
+        }
+        return body[body.length - 1] == 0;
+    }
+
+    /** All of a text frame's text: byte order marks and trailing terminators dropped, NULs between values kept. */
+    static String fullText(Frame f) {
+        if (f.body.length < 1) return "";
+        int enc = f.body[0] & 0xff;
+        java.nio.charset.Charset cs = enc == 1 ? StandardCharsets.UTF_16 : enc == 2 ? StandardCharsets.UTF_16BE
+                : enc == 3 ? StandardCharsets.UTF_8 : StandardCharsets.ISO_8859_1;
+        String s = new String(f.body, 1, f.body.length - 1, cs).replace("﻿", "");
+        int end = s.length();
+        while (end > 0 && s.charAt(end - 1) == 0) end--;
+        return s.substring(0, end);
     }
 
     /** The text of a text frame, or null. */

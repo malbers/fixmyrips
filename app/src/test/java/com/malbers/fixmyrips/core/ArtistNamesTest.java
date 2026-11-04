@@ -88,7 +88,7 @@ public class ArtistNamesTest {
         assertFalse(ArtistNames.changeable(mp3));
         FixPlanner.Plan p = ArtistNames.plan(mp3, "Beatles", "The Beatles");
         assertTrue(p.changes.isEmpty());
-        assertTrue(p.notes.get(0).contains("FLAC files only"));
+        assertTrue(p.notes.get(0), p.notes.get(0).contains("no ID3v2 tag"));
 
         Map<Album, String> artist = new LinkedHashMap<>();
         artist.put(album("The Beatles", "Abbey Road", "flac"), "The Beatles");

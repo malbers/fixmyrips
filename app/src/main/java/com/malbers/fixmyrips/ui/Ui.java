@@ -74,6 +74,13 @@ public final class Ui {
         return b;
     }
 
+    /** Enables a primary button, or disables it and makes it look it: grey, not orange, so it never reads as tappable. */
+    public static void setPrimaryEnabled(Context c, Button b, boolean enabled) {
+        b.setEnabled(enabled);
+        b.setTextColor(enabled ? BG : SUB);
+        b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), rounded(c, enabled ? ACCENT : CARD_HI, 24), null));
+    }
+
     public static Button button(Context c, String label, View.OnClickListener l) {
         return button(c, label, false, l);
     }

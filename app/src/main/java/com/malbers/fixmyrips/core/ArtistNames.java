@@ -24,7 +24,7 @@ public final class ArtistNames {
     public static final class Spelling {
         public final String name;
         public final List<Album> albums = new ArrayList<>();
-        /** Albums FixMyRips can't change yet (MP3: only track and disc numbers are written there so far). */
+        /** Albums FixMyRips can't change yet (see {@link #changeable}), e.g. an MP3 with no ID3v2 tag. */
         public int notChangeable;
 
         Spelling(String name) {
@@ -49,7 +49,35 @@ public final class ArtistNames {
             for (Spelling s : spellings) n += s.albums.size();
             return n;
         }
+
+        /** How many albums would change if the owner keeps {@code keep}: those with another spelling that can be changed. */
+        public int changes(Spelling keep) {
+            int n = 0;
+            for (Spelling s : spellings) if (s != keep) n += s.albums.size() - s.notChangeable;
+            return n;
+        }
+
+        /** False when no album in the group can be changed, whichever spelling is kept. */
+        public boolean canChange() {
+            for (Spelling s : spellings) if (s.albums.size() > s.notChangeable) return true;
+            return false;
+        }
+
+        /** The group's status in the artist list: {@link #CHOOSE}, or {@link #CANT_CHANGE} when nothing in it can change. */
+        public String status() {
+            return canChange() ? CHOOSE : CANT_CHANGE;
+        }
+
+        /** The chooser's button: "Change 2 albums", or {@link #CANT_CHANGE} when keeping {@code keep} changes nothing. */
+        public String buttonLabel(Spelling keep) {
+            int n = changes(keep);
+            return n == 0 ? CANT_CHANGE : n == 1 ? "Change 1 album" : "Change " + n + " albums";
+        }
     }
+
+    public static final String CHOOSE = "Choose";
+    /** Shown instead of a button wherever nothing can be changed, so no dead button looks tappable. */
+    public static final String CANT_CHANGE = "MP3, can't change yet";
 
     /**
      * The comparison key: case, accents, punctuation and spaces ignored, a leading "The" and a library-sort
@@ -79,12 +107,13 @@ public final class ArtistNames {
             if (k.isEmpty()) continue;
             Spelling s = byKey.computeIfAbsent(k, x -> new LinkedHashMap<>()).computeIfAbsent(name, Spelling::new);
             s.albums.add(e.getKey());
-            if (!changeable(e.getKey())) s.notChangeable++;
         }
         List<Group> out = new ArrayList<>();
         for (Map<String, Spelling> spellings : byKey.values()) {
             if (spellings.size() < 2) continue;
             List<Spelling> list = new ArrayList<>(spellings.values());
+            // Only albums in a group are checked: for an MP3 that means reading its tag.
+            for (Spelling s : list) for (Album a : s.albums) if (!changeable(a)) s.notChangeable++;
             list.sort(Comparator.comparingInt((Spelling s) -> -s.albums.size()).thenComparing(s -> s.name));
             out.add(new Group(list));
         }
@@ -92,12 +121,26 @@ public final class ArtistNames {
         return out;
     }
 
-    /** True when every audio file in the album is FLAC, the format whose artist tags FixMyRips can write. */
+    /**
+     * True when FixMyRips can write the artist tags of every audio file in the album: FLAC, or MP3 with an
+     * ID3v2.3/2.4 tag it can rewrite (see {@link Id3Tags#whyArtistUnchangeable}).
+     */
     public static boolean changeable(Album a) {
+        return whyUnchangeable(a) == null;
+    }
+
+    /** Why the album's artist tags can't be changed ("01.mp3: no ID3v2 tag"), or null when they can. */
+    static String whyUnchangeable(Album a) {
         File[] files = audio(a.dir);
-        if (files.length == 0) return false;
-        for (File f : files) if (!TagFiles.FLAC.equals(TagFiles.format(f))) return false;
-        return true;
+        if (files.length == 0) return "no audio files";
+        for (File f : files) {
+            String format = TagFiles.format(f);
+            if (TagFiles.FLAC.equals(format)) continue;
+            if (!TagFiles.ID3.equals(format)) return f.getName() + ": only FLAC and MP3 files can be changed";
+            String why = Id3Tags.whyArtistUnchangeable(f);
+            if (why != null) return f.getName() + ": " + why;
+        }
+        return null;
     }
 
     /**
@@ -107,8 +150,9 @@ public final class ArtistNames {
     public static FixPlanner.Plan plan(Album a, String from, String to) throws IOException {
         List<FixPlanner.Change> changes = new ArrayList<>();
         List<String> notes = new ArrayList<>();
-        if (!changeable(a)) {
-            notes.add("artist name left alone: FixMyRips can change artist names in FLAC files only, for now");
+        String why = whyUnchangeable(a);
+        if (why != null) {
+            notes.add("artist name left alone: can't be changed yet (" + why + ")");
             return new FixPlanner.Plan(a, changes, notes, new ArrayList<>());
         }
         for (File f : audio(a.dir)) {
