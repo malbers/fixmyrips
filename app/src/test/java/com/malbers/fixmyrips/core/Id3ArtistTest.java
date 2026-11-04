@@ -191,6 +191,18 @@ public class Id3ArtistTest {
         assertEquals("Björk 東京", TagReader.read(f).artist);
     }
 
+    @Test
+    public void tagHeaderRevisionAndFlagsAreKept() throws IOException {
+        File f = mp3(new File(tmp.getRoot(), "rev.mp3"), 3, with(3, text(3, "TPE1", LATIN1, false, true, "Beatles")), 64);
+        byte[] d = Files.readAllBytes(f.toPath());
+        d[4] = 1; // revision
+        d[5] = 0x20; // "experimental", a flag FixMyRips can keep
+        Files.write(f.toPath(), d);
+        Id3Tags.write(f, rename(f, "Beatles", "The Beatles"));
+        byte[] after = Files.readAllBytes(f.toPath());
+        assertArrayEquals(Arrays.copyOfRange(d, 0, 10), Arrays.copyOfRange(after, 0, 10));
+    }
+
     // ---- which frames ----
 
     @Test

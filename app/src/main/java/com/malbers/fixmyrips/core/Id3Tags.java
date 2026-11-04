@@ -243,7 +243,8 @@ public final class Id3Tags {
         int size = inPlace ? t.size : used + NEW_PADDING;
         ByteArrayOutputStream b = new ByteArrayOutputStream();
         b.write('I'); b.write('D'); b.write('3');
-        b.write(t.major); b.write(0); b.write(0);
+        // The revision and flag bytes stay as they were (parse already refused the flags it can't keep).
+        b.write(t.major); b.write(t.present ? original[4] : 0); b.write(t.present ? original[5] : 0);
         b.write(size >> 21 & 0x7f); b.write(size >> 14 & 0x7f); b.write(size >> 7 & 0x7f); b.write(size & 0x7f);
         for (byte[] fr : frames) b.write(fr, 0, fr.length);
         for (int i = used; i < size; i++) b.write(0);
