@@ -362,8 +362,10 @@ public class Id3ArtistTest {
             if (major == 0) { // no ID3v2 tag at all: audio only
                 dir.mkdirs();
                 Files.write(f.toPath(), new byte[2000]);
+            } else if (major == -3) { // v2.3 with a compressed TPE1: can't be rewritten safely
+                mp3(f, 3, with(3, frame(3, "TPE1", 0, 0x80, body(LATIN1, false, true, "x"))), 64);
             } else if (major == 2) {
-                Id3TagsTest.mp3(f, 2, "1", null, 0, 64);
+                v22(f, artist);
             } else {
                 mp3(f, major, with(major, text(major, "TPE1", LATIN1, false, true, artist)), 64);
             }
@@ -393,19 +395,19 @@ public class Id3ArtistTest {
     @Test
     public void unchangeableMp3sSayCantChangeYetInsteadOfOfferingAButton() throws IOException {
         Album bare = album("Beatles/Help", 0, null);
-        Album old = album("The Beatles/Revolver", 2, null);
+        Album old = album("The Beatles/Revolver", -3, null);
         assertFalse(ArtistNames.changeable(bare));
         assertFalse(ArtistNames.changeable(old));
         assertTrue(ArtistNames.plan(bare, "Beatles", "The Beatles").notes.get(0).contains("no ID3v2 tag"));
-        assertTrue(ArtistNames.plan(old, "The Beatles", "Beatles").notes.get(0).contains("ID3v2.2"));
+        assertTrue(ArtistNames.plan(old, "The Beatles", "Beatles").notes.get(0).contains("compressed or encrypted TPE1"));
 
         Map<Album, String> artist = new LinkedHashMap<>();
         artist.put(bare, "Beatles");
         artist.put(old, "The Beatles");
         ArtistNames.Group g = ArtistNames.find(artist).get(0);
         assertFalse(g.canChange());
-        assertEquals("MP3, can't change yet", g.status());
-        for (ArtistNames.Spelling keep : g.spellings) assertEquals("MP3, can't change yet", g.buttonLabel(keep));
+        assertEquals("can't change yet", g.status());
+        for (ArtistNames.Spelling keep : g.spellings) assertEquals("can't change yet", g.buttonLabel(keep));
 
         // One changeable album and one not: keeping the changeable spelling would change nothing.
         Map<Album, String> mixed = new LinkedHashMap<>();
@@ -416,7 +418,85 @@ public class Id3ArtistTest {
         assertEquals(ArtistNames.CHOOSE, m.status());
         ArtistNames.Spelling theWho = m.spellings.get(0).name.equals("The Who") ? m.spellings.get(0) : m.spellings.get(1);
         ArtistNames.Spelling who = theWho == m.spellings.get(0) ? m.spellings.get(1) : m.spellings.get(0);
-        assertEquals("MP3, can't change yet", m.buttonLabel(theWho));
+        assertEquals("can't change yet", m.buttonLabel(theWho));
         assertEquals("Change 1 album", m.buttonLabel(who));
+    }
+
+    // ---- F2: old iTunes ID3v2.2 tags (TP1 / TP2) ----
+
+    /** A v2.2 frame: three-letter id, three-byte size, no flag bytes. */
+    static byte[] frame22(String id, byte[] body) {
+        ByteArrayOutputStream b = new ByteArrayOutputStream();
+        b.write(id.getBytes(StandardCharsets.ISO_8859_1), 0, 3);
+        b.write(body.length >> 16 & 0xff); b.write(body.length >> 8 & 0xff); b.write(body.length & 0xff);
+        b.write(body, 0, body.length);
+        return b.toByteArray();
+    }
+
+    /** A v2.2 MP3 with TT2, TAL, an optional TP1 (Latin-1), TRK, a PIC cover; padding; audio; ID3v1 tail. */
+    static File v22(File f, String artist) throws IOException {
+        List<byte[]> l = new ArrayList<>();
+        l.add(frame22("TT2", body(UTF16, true, true, "Yellow")));
+        l.add(frame22("TAL", body(LATIN1, false, true, "Parachutes")));
+        if (artist != null) l.add(frame22("TP1", body(LATIN1, false, true, artist)));
+        l.add(frame22("TRK", body(LATIN1, false, false, "5/10")));
+        byte[] pic = new byte[5000];
+        new Random(11).nextBytes(pic);
+        pic[0] = 0;
+        l.add(frame22("PIC", pic));
+        return mp3(f, 2, l, 64);
+    }
+
+    @Test
+    public void v22Tp1IsRewrittenAndEverythingElseStaysByteForByte() throws IOException {
+        File f = v22(new File(tmp.getRoot(), "v22.mp3"), "Cold Play");
+        byte[] original = Files.readAllBytes(f.toPath());
+        assertNull(Id3Tags.whyArtistUnchangeable(f));
+        assertEquals("Cold Play", FlacTags.get(Id3Tags.comments(f), "ARTIST"));
+        List<byte[]> others = rawExcept(f, "TPE1");
+        String before = audio(f);
+
+        FlacTags.Written w = Id3Tags.write(f, FlacTags.set(Id3Tags.comments(f), "ARTIST", "Coldplay"));
+
+        byte[] d = Files.readAllBytes(f.toPath());
+        assertEquals(2, d[3]); // still v2.2
+        assertEquals(before, audio(f));
+        assertArrayEquals(frame22("TP1", body(LATIN1, false, true, "Coldplay")), Id3Tags.parse(f).get("TPE1").raw);
+        List<byte[]> after = rawExcept(f, "TPE1");
+        assertEquals(others.size(), after.size());
+        for (int i = 0; i < others.size(); i++) assertArrayEquals(others.get(i), after.get(i));
+        assertEquals("Coldplay", TagReader.read(f).artist); // what the scanner (and so the chooser) sees
+
+        Id3Tags.undo(f, w.originalHeader, w.audioSha256);
+        assertArrayEquals(original, Files.readAllBytes(f.toPath()));
+    }
+
+    @Test
+    public void v22GetsANewTp2AndAUtf16NameWhenLatin1CantHoldIt() throws IOException {
+        File f = v22(new File(tmp.getRoot(), "v22b.mp3"), "Bjork");
+        List<String> c = FlacTags.set(Id3Tags.comments(f), "ARTIST", "Bj\u00f6rk Gu\u00f0mundsd\u00f3ttir \u2013 live");
+        c = FlacTags.set(c, "ALBUMARTIST", "Bj\u00f6rk");
+        Id3Tags.write(f, c);
+        Id3Tags.Tag t = Id3Tags.parse(f);
+        assertEquals(2, t.major);
+        assertEquals(1, t.get("TPE1").body[0]); // the en dash needs UTF-16
+        assertEquals("Bj\u00f6rk Gu\u00f0mundsd\u00f3ttir \u2013 live", Id3Tags.fullText(t.get("TPE1")));
+        assertEquals(0, t.get("TPE2").body[0]); // new frame: Latin-1 holds it
+        assertEquals("TP2", new String(t.get("TPE2").raw, 0, 3, StandardCharsets.ISO_8859_1));
+        assertEquals("Bj\u00f6rk", Id3Tags.fullText(t.get("TPE2")));
+    }
+
+    @Test
+    public void v22AlbumsAreChangeableInTheChooser() throws IOException {
+        Album a = album("Coldplay/Parachutes22", 2, "Cold Play");
+        assertTrue(ArtistNames.changeable(a));
+    }
+
+    @Test
+    public void v22FrameInAnEncodingV22LacksIsRefused() throws IOException {
+        List<byte[]> l = new ArrayList<>();
+        l.add(frame22("TP1", body(UTF8, false, true, "Beatles")));
+        File f = mp3(new File(tmp.getRoot(), "v22utf8.mp3"), 2, l, 64);
+        assertEquals("TPE1 frame in an unknown text encoding", Id3Tags.whyArtistUnchangeable(f));
     }
 }

@@ -77,7 +77,7 @@ public final class ArtistNames {
 
     public static final String CHOOSE = "Choose";
     /** Shown instead of a button wherever nothing can be changed, so no dead button looks tappable. */
-    public static final String CANT_CHANGE = "MP3, can't change yet";
+    public static final String CANT_CHANGE = "can't change yet";
 
     /**
      * The comparison key: case, accents, punctuation and spaces ignored, a leading "The" and a library-sort
@@ -123,7 +123,7 @@ public final class ArtistNames {
 
     /**
      * True when FixMyRips can write the artist tags of every audio file in the album: FLAC, or MP3 with an
-     * ID3v2.3/2.4 tag it can rewrite (see {@link Id3Tags#whyArtistUnchangeable}).
+     * ID3v2.2/2.3/2.4 tag it can rewrite (see {@link Id3Tags#whyArtistUnchangeable}).
      */
     public static boolean changeable(Album a) {
         return whyUnchangeable(a) == null;

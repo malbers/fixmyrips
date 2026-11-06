@@ -13,7 +13,8 @@ import java.util.Locale;
 
 /**
  * The MP3 counterpart of {@link FlacTags}: reads and rewrites the ID3v2.2/2.3/2.4 tag at the start of an MP3.
- * Only the track (TRCK, TRK in v2.2) and disc (TPOS, TPA in v2.2) frames are ever rewritten; every other frame, cover art included,
+ * Only the track (TRCK, TRK in v2.2), disc (TPOS, TPA in v2.2), artist (TPE1, TP1 in v2.2) and album artist (TPE2,
+ * TP2 in v2.2) frames are ever rewritten; every other frame, cover art included,
  * is copied byte for byte. The audio after the tag (and any ID3v1 tag at the very end) is hashed before and
  * after, exactly as for FLAC.
  *
@@ -117,7 +118,7 @@ public final class Id3Tags {
     /**
      * The track and disc numbers, then the artist (TPE1) and album artist (TPE2), as Vorbis-style lines, in
      * this order, only those present. The artist lines are the frame's whole text (several values stay joined
-     * by NUL, so they never equal a plain name); v2.2 tags have no artist lines, since they can't be written.
+     * by NUL, so they never equal a plain name).
      */
     public static List<String> comments(File f) throws IOException {
         return comments(parse(f));
@@ -127,11 +128,9 @@ public final class Id3Tags {
         List<String> out = new ArrayList<>();
         split(out, text(t.get("TRCK")), "TRACKNUMBER", "TRACKTOTAL");
         split(out, text(t.get("TPOS")), "DISCNUMBER", "DISCTOTAL");
-        if (t.major != 2) {
-            for (int i = 0; i < ARTIST_FRAMES.length; i++) {
-                Frame fr = t.get(ARTIST_FRAMES[i]);
-                if (fr != null) out.add(ARTIST_KEYS[i] + "=" + fullText(fr));
-            }
+        for (int i = 0; i < ARTIST_FRAMES.length; i++) {
+            Frame fr = t.get(ARTIST_FRAMES[i]);
+            if (fr != null) out.add(ARTIST_KEYS[i] + "=" + fullText(fr));
         }
         return out;
     }
@@ -141,8 +140,8 @@ public final class Id3Tags {
     static final String[] ARTIST_KEYS = {"ARTIST", "ALBUMARTIST"};
 
     /**
-     * Why the artist tags of this MP3 can't be changed, or null when they can: the file needs an ID3v2.3 or
-     * 2.4 tag FixMyRips can rewrite, with at most one TPE1 and one TPE2, neither compressed, encrypted,
+     * Why the artist tags of this MP3 can't be changed, or null when they can: the file needs an ID3v2.2, 2.3
+     * or 2.4 tag FixMyRips can rewrite, with at most one TPE1 and one TPE2, neither compressed, encrypted,
      * read-only or in an unknown text encoding.
      */
     public static String whyArtistUnchangeable(File f) {
@@ -153,7 +152,6 @@ public final class Id3Tags {
             return e.getMessage();
         }
         if (!t.present) return "no ID3v2 tag";
-        if (t.major == 2) return "ID3v2.2 tag";
         for (String id : ARTIST_FRAMES) {
             int n = 0;
             for (Frame fr : t.frames) {
@@ -169,6 +167,8 @@ public final class Id3Tags {
 
     /** Why this text frame can't be rewritten, or null. */
     private static String whyNotRewritable(int major, Frame fr) {
+        // v2.2 frames have no flag bytes, and only Latin-1 (0) and UTF-16 with a byte order mark (1).
+        if (major == 2) return fr.body.length > 0 && (fr.body[0] & 0xff) > 1 ? fr.id + " frame in an unknown text encoding" : null;
         if (fr.flags2 != 0) return "compressed or encrypted " + fr.id + " frame";
         int status = fr.raw[8] & 0xff;
         if ((status & (major == 4 ? 0x10 : 0x20)) != 0) return "read-only " + fr.id + " frame";
@@ -207,7 +207,7 @@ public final class Id3Tags {
         }
         for (int i = 0; i < ARTIST_FRAMES.length; i++) {
             if (!newArtist[i]) continue;
-            String why = t.major == 2 ? "ID3v2.2 tag" : whyArtistUnchangeable(f);
+            String why = whyArtistUnchangeable(f);
             if (why != null) throw new FlacTags.NotEditable("artist names can't be changed in this MP3: " + why);
         }
         byte[] original = FlacTags.readRange(f, 0, t.audioOffset);
@@ -285,8 +285,7 @@ public final class Id3Tags {
         int len = text.length + 1;
         ByteArrayOutputStream b = new ByteArrayOutputStream();
         if (major == 2) {
-            String old = id.equals("TRCK") ? "TRK" : id.equals("TPOS") ? "TPA" : id.equals("TIT2") ? "TT2" : id.substring(0, 3);
-            b.write(old.getBytes(StandardCharsets.ISO_8859_1), 0, 3);
+            b.write(v22(id).getBytes(StandardCharsets.ISO_8859_1), 0, 3);
             b.write(len >> 16 & 0xff); b.write(len >> 8 & 0xff); b.write(len & 0xff);
             b.write(0);
             b.write(text, 0, text.length);
@@ -306,9 +305,10 @@ public final class Id3Tags {
     }
 
     /**
-     * A v2.3/2.4 text frame holding {@code value}, in the text encoding of {@code old} (null for a new frame).
+     * A text frame holding {@code value}, in the text encoding of {@code old} (null for a new frame).
      * The old frame's flag bytes, byte order mark and string terminator are kept. A Latin-1 frame whose new
-     * value has characters Latin-1 lacks becomes UTF-16 with a byte order mark, valid in both versions.
+     * value has characters Latin-1 lacks becomes UTF-16 with a byte order mark, valid in every version.
+     * {@code id} is the v2.3 name; a v2.2 tag gets its three-letter one and the six-byte v2.2 frame header.
      */
     static byte[] textFrame(int major, Frame old, String id, String value) {
         int enc = old != null && old.body.length > 0 ? old.body[0] & 0xff : 0;
@@ -337,6 +337,13 @@ public final class Id3Tags {
         }
         int len = body.size();
         ByteArrayOutputStream b = new ByteArrayOutputStream();
+        if (major == 2) {
+            b.write(v22(id).getBytes(StandardCharsets.ISO_8859_1), 0, 3);
+            b.write(len >> 16 & 0xff); b.write(len >> 8 & 0xff); b.write(len & 0xff);
+            byte[] d = body.toByteArray();
+            b.write(d, 0, d.length);
+            return b.toByteArray();
+        }
         b.write(id.getBytes(StandardCharsets.ISO_8859_1), 0, 4);
         if (major == 4) {
             b.write(len >> 21 & 0x7f); b.write(len >> 14 & 0x7f); b.write(len >> 7 & 0x7f); b.write(len & 0x7f);
@@ -405,10 +412,16 @@ public final class Id3Tags {
         return major == 4 ? syncsafe(d, p + 4) : be32(d, p + 4);
     }
 
-    /** v2.2's TRK/TPA under their v2.3 names, so the rest of the class speaks one language. */
+    /** v2.2's TRK/TPA/TP1/TP2 under their v2.3 names, so the rest of the class speaks one language. */
     private static String canonical(int major, String id) {
         if (major != 2) return id;
-        return id.equals("TRK") ? "TRCK" : id.equals("TPA") ? "TPOS" : id;
+        return id.equals("TRK") ? "TRCK" : id.equals("TPA") ? "TPOS" : id.equals("TP1") ? "TPE1" : id.equals("TP2") ? "TPE2" : id;
+    }
+
+    /** The v2.2 name of a frame {@link #canonical} renamed. */
+    private static String v22(String id) {
+        return id.equals("TRCK") ? "TRK" : id.equals("TPOS") ? "TPA" : id.equals("TPE1") ? "TP1" : id.equals("TPE2") ? "TP2"
+                : id.equals("TIT2") ? "TT2" : id.substring(0, 3);
     }
 
     static boolean isMp3(File f) {

@@ -622,7 +622,8 @@ public class MainActivity extends Activity {
             for (ArtistNames.Group g : artistGroups) any |= g.canChange();
             // Still opens the list when nothing can change, so the owner sees which artists; only the status says so.
             shown.add(0, new ItemAdapter.Item("Artist names: " + artistGroups.size() + (artistGroups.size() == 1 ? " artist" : " artists") + " spelled two ways",
-                    "e.g. " + g0.majority().name + " / " + g0.spellings.get(1).name + " · you choose which spelling to keep",
+                    "e.g. " + g0.majority().name + " / " + g0.spellings.get(1).name
+                            + (any ? " · you choose which spelling to keep" : " · these files can't be changed yet"),
                     any ? ArtistNames.CHOOSE : ArtistNames.CANT_CHANGE, any ? Ui.ACCENT : Ui.SUB, null, false, ARTISTS_ROW));
         }
 
@@ -1046,9 +1047,12 @@ public class MainActivity extends Activity {
                     g.canChange() ? Ui.ACCENT : Ui.SUB, null, false, g.canChange() ? g : null));
         }
         if (adapter.getCount() == 0) adapter.add(new ItemAdapter.Item("All artist names match", "Nothing to choose.", null, Ui.SUB, null, false, null));
+        boolean any = artistGroups.isEmpty(); // "All artist names match" keeps the usual wording
+        for (ArtistNames.Group g : artistGroups) any |= g.canChange();
         LinearLayout body = Ui.column(this);
         TextView n = Ui.text(this, "The same artist is spelled more than one way in this folder, so the Eversolo lists them as "
-                + "separate artists. Tap one to choose which spelling to keep. Nothing changes until you confirm.", 15, Ui.TEXT, false);
+                + "separate artists. " + (any ? "Tap one to choose which spelling to keep. Nothing changes until you confirm."
+                : "FixMyRips can't change the artist tags in these files yet, so there is nothing to choose here."), 15, Ui.TEXT, false);
         n.setPadding(Ui.dp(this, 4), 0, 0, Ui.dp(this, 8));
         body.addView(n);
         LinearLayout box = card();
@@ -1082,7 +1086,7 @@ public class MainActivity extends Activity {
                 for (Album al : s.albums) a.add(al.dir.getName());
                 t.append(": ").append(String.join(", ", a));
             }
-            if (s.notChangeable > 0) t.append("  (").append(s.notChangeable).append(" MP3, can't change yet)");
+            if (s.notChangeable > 0) t.append("  (").append(s.notChangeable).append(" can't change yet)");
             rb.setText(t.toString());
             rb.setTextColor(Ui.TEXT);
             rb.setTextSize(15);
