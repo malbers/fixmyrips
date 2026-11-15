@@ -1,6 +1,6 @@
 # FixMyRips
 
-Finds and fixes the errors in CDs ripped on an Eversolo streamer. It checks every album against its release, corrects the tags it can fix safely, and tells you which discs need ripping again.
+An APK for the Eversolo DMP (tested on DMP-A6) that finds and fixes the errors in CDs ripped on an Eversolo streamer. It checks every album against its release, corrects the tags it can fix safely, and tells you which discs need ripping again.
 
 **Bonus: scan a CD with your phone.** Snap the barcode on any CD on your shelf and your phone tells you if it's already ripped, ripped with problems, or still to do. [More below](#scan-a-cd-with-your-phone-is-it-ripped).
 
