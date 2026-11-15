@@ -88,6 +88,10 @@ The phone page only works on your home network, only while that screen is open o
 
 Rips with a blank disc where the cover should be? **[AddMyCoverArt](https://github.com/malbers/addmycoverart)** finds the missing album art for every album in a folder and saves it next to your tracks, right on the Eversolo. Same install as this one, same approach: it never changes your music, it only adds a `folder.jpg`. Fix the tags with FixMyRips, then fill in the covers.
 
+### 📊 Also from me: EverSignal
+
+Ever wondered whether your music really reaches your DAC untouched? **[EverSignal](https://github.com/malbers/eversignal)** is a now-playing screen for the Eversolo DMP-A6 that shows the whole signal path, from the file to the output port, and tells you whether it's bit-perfect. Plus five pages of every stat the player reports. It only reads, it never writes. Same install as this one.
+
 ## Staying up to date
 
 Once a day it checks for a new version. When one is out, an **Update available** button appears; one tap downloads it to the Download folder, and you install it from the Files app. No computer needed.
@@ -230,4 +234,4 @@ You're welcome to use it, modify it, build on it and send improvements. If you r
 
 Contributions are welcome. Anything you submit to this repository is accepted under the same Apache 2.0 licence.
 
-Also from me: [AddMyCoverArt](https://github.com/malbers/addmycoverart) fills in missing album art on the same Eversolo rips.
+Also from me: [AddMyCoverArt](https://github.com/malbers/addmycoverart) fills in missing album art on the same Eversolo rips. [EverSignal](https://github.com/malbers/eversignal) shows what your DMP-A6 is playing, all the way to the DAC, and whether it is bit-perfect.
