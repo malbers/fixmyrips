@@ -18,6 +18,23 @@ Stand at your shelf with your phone. No app to install, just its browser. It eve
 
 > **Made by Michael Albers.** I make honest videos about budget audio equipment, including a lot of Eversolo DMP-A6 how-tos. If this app helped you, come find more on my YouTube channel: **[youtube.com/@malbers](https://www.youtube.com/@malbers)**
 
+**Contents**
+
+- [Check and fix your rips](#check-and-fix-your-rips)
+- [Scan a CD with your phone: is it ripped?](#scan-a-cd-with-your-phone-is-it-ripped)
+- [Staying up to date](#staying-up-to-date)
+- [What it never does](#what-it-never-does)
+- [Download](#download)
+- [Install](#install)
+  - [Option A: from a USB thumb drive](#option-a-from-a-usb-thumb-drive)
+  - [Option B: the Eversolo's upload page](#option-b-the-eversolos-upload-page)
+  - [Option C: copy it over the network, then tap to install](#option-c-copy-it-over-the-network-then-tap-to-install)
+- [What's new](#whats-new)
+- [Tested on](#tested-on)
+- [Building from source](#building-from-source)
+- [Credits](#credits)
+- [Licence](#licence)
+
 ## Check and fix your rips
 
 1. **Pick a folder** on the internal storage or an attached drive, e.g. `EverSoloMusic`, and tap **Scan this folder**. Every folder with audio files counts as an album. You can scan a whole library or one artist.
@@ -115,11 +132,21 @@ Download it to your laptop or desktop, not to the Eversolo. The next section sho
 
 ## Install
 
-**What you're doing:** an `.apk` file is an Android app. The Eversolo runs Android underneath, so it can install apps that aren't in its app store, a process usually called "sideloading". There are two ways to get the file onto the Eversolo. Both take a couple of minutes, and you only do this once.
+**What you're doing:** an `.apk` file is an Android app. The Eversolo runs Android underneath, so it can install apps that aren't in its app store, a process usually called "sideloading". There are three ways to get the file onto the Eversolo. Each takes a couple of minutes, and you only do this once.
 
-**Before you start:** your computer and the Eversolo must be on the same home network (the same Wi-Fi, or plugged into the same router).
+**For Options B and C:** your computer and the Eversolo must be on the same home network (the same Wi-Fi, or plugged into the same router).
 
-### Option A: the Eversolo's upload page (easiest)
+### Option A: from a USB thumb drive
+
+No network needed.
+
+1. **Copy the APK onto a USB thumb drive** (FAT32, exFAT or NTFS, which covers almost any drive).
+2. **Plug it into a USB port on the back of the Eversolo.**
+3. **Open the Files app**, pick the USB drive in the list on the left, and go to the folder with the APK.
+4. **Tap the FixMyRips APK, then Install.** If it asks to allow installs from unknown sources, turn that on for Files.
+5. **Tap Done**, then find it in the **Apps** tab.
+
+### Option B: the Eversolo's upload page
 
 1. **Find the Eversolo's address.** On the Eversolo, go to **Settings > Network Settings > Transfer**. Under **Method 1** it shows a web address that starts with `http://` and ends in `:9587`. Yours will have its own numbers in place of the `192.168.1.x` you'll see in these examples.
 
@@ -135,7 +162,7 @@ Download it to your laptop or desktop, not to the Eversolo. The next section sho
 
 4. **Find it on the Eversolo.** On the home screen, open the **Apps** tab. FixMyRips is listed there.
 
-### Option B: copy it over the network, then tap to install
+### Option C: copy it over the network, then tap to install
 
 Use this if the upload page doesn't work for you, or if you already copy music to the Eversolo this way.
 
@@ -152,7 +179,7 @@ Use this if the upload page doesn't work for you, or if you already copy music t
 
    <!-- TODO(1.0.2): screenshot of the Apps tab with FixMyRips (Michael's homescreen shot). -->
 
-   <!-- Option A step 4 ("Find it on the Eversolo") can reuse the same Apps tab shot. -->
+   <!-- Option B step 4 ("Find it on the Eversolo") can reuse the same Apps tab shot. -->
 
 ### First launch: give it access to your music
 
@@ -174,7 +201,7 @@ The first time you open it, the app asks for permission to read your music folde
 
 When a new version is out, tap **Update available** at the bottom left of the folder screen, next to **Rip Inventory**. It downloads the new version to the Eversolo's Download folder. Then open the **Files** app, choose **Storage** on the left (the Eversolo's own storage, not the SSD), open **Download**, tap the new FixMyRips APK and tap **Install**. It installs over the old version; your undo history is kept.
 
-You can also download any version from the [releases page](https://github.com/malbers/fixmyrips/releases) on your computer and use Option A or B.
+You can also download any version from the [releases page](https://github.com/malbers/fixmyrips/releases) on your computer and use any of the options above.
 
 ### Is this file really from me?
 
