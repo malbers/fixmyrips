@@ -143,8 +143,10 @@ No network needed.
 1. **Copy the APK onto a USB thumb drive** (FAT32, exFAT or NTFS, which covers almost any drive).
 2. **Plug it into a USB port on the back of the Eversolo.**
 3. **Open the Files app**, pick the USB drive in the list on the left, and go to the folder with the APK.
-4. **Tap the FixMyRips APK, then Install.** If it asks to allow installs from unknown sources, turn that on for Files.
+4. **Tap `FixMyRips-<version>.apk`, then Install.** If it asks to allow installs from unknown sources, turn that on for Files.
 5. **Tap Done**, then find it in the **Apps** tab.
+
+**Tip:** one thumb drive can carry all three of my Eversolo apps (FixMyRips, [AddMyCoverArt](https://github.com/malbers/addmycoverart) and [EverSignal](https://github.com/malbers/eversignal)), so you can install them in one go.
 
 ### Option B: the Eversolo's upload page
 
@@ -156,7 +158,7 @@ No network needed.
 
    ![Eversolo web upload page with the Upload Apk button](docs/install/2-upload-page.jpg)
 
-3. **Send the app.** Click **Select APK File**, find the FixMyRips APK where you downloaded it (usually your Downloads folder), and choose it. It uploads and installs on the Eversolo by itself.
+3. **Send the app.** Click **Select APK File**, find `FixMyRips-<version>.apk` where you downloaded it (usually your Downloads folder), and choose it. It uploads and installs on the Eversolo by itself.
 
    ![Select APK File](docs/install/3-select-apk.jpg)
 
@@ -171,7 +173,7 @@ Use this if the upload page doesn't work for you, or if you already copy music t
    - **Windows:** open File Explorer, click in the address bar at the top, type the `\\` address and press Enter.
    - **Mac:** in Finder, choose **Go > Connect to Server** (or press Cmd+K), type the `smb://` address and click Connect. If it asks how to connect, choose **Guest**.
 3. **Copy the APK** into any folder on the Eversolo, for example the `Download` folder on its SSD. Drag it in like any other file.
-4. **Install it from the Eversolo.** On the Eversolo, open the built-in **Files** app, go to the folder you used, tap the FixMyRips APK and tap **Install**. (If you already have an older version, it says it will install an update instead. That's fine: your undo history is kept.)
+4. **Install it from the Eversolo.** On the Eversolo, open the built-in **Files** app, go to the folder you used, tap `FixMyRips-<version>.apk` and tap **Install**. (If you already have an older version, it says it will install an update instead. That's fine: your undo history is kept.)
 
    <!-- TODO(1.0.2): screenshot of the Install prompt (Michael). -->
 
