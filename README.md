@@ -18,6 +18,8 @@ Stand at your shelf with your phone. No app to install, just its browser. It eve
 
 > **Made by Michael Albers.** I make honest videos about budget audio equipment, including a lot of Eversolo DMP-A6 how-tos. If this app helped you, come find more on my YouTube channel: **[youtube.com/@malbers](https://www.youtube.com/@malbers)**
 
+[![Downloads to date](https://img.shields.io/github/downloads/malbers/fixmyrips/total?label=downloads%20to%20date&color=2ea043)](https://github.com/malbers/fixmyrips/releases)
+
 **Contents**
 
 - [Check and fix your rips](#check-and-fix-your-rips)
